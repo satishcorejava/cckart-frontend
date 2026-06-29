@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Drawer, Box, Typography, Divider, Chip, Stack, Table, TableBody,
   TableCell, TableHead, TableRow, Paper, IconButton, Skeleton, Alert,
@@ -11,7 +11,8 @@ import LocationOnIcon   from '@mui/icons-material/LocationOn';
 import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
 import ContentCopyIcon  from '@mui/icons-material/ContentCopy';
 import WhatsAppIcon     from '@mui/icons-material/WhatsApp';
-import { fetchInvoiceDetail } from '../api/invoices';
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
+import { fetchInvoiceDetail, markInvoiceAsSent } from '../api/invoices';
 import StatusBadge from './StatusBadge';
 import RecordPaymentDialog from './RecordPaymentDialog';
 import type { Invoice } from '../types';
@@ -28,11 +29,24 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
   const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  const queryClient = useQueryClient();
+
   const [paying,   setPaying]   = useState(false);
   const [copied,   setCopied]   = useState(false);
+  const [toast,    setToast]    = useState<string | null>(null);
+
+  const markSentMutation = useMutation({
+    mutationFn: () => markInvoiceAsSent(invoiceId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      setToast('Invoice marked as sent');
+    },
+    onError: () => setToast('Failed to mark as sent'),
+  });
 
   const copyLink = (url: string) => {
-    navigator.clipboard.writeText(url).then(() => { setCopied(true); });
+    navigator.clipboard.writeText(url).then(() => { setToast('Payment link copied!'); });
   };
 
   const shareWhatsApp = (inv: { invoice_number: string; balance: number; invoice_url: string }) => {
@@ -258,6 +272,24 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
           borderTop: `1px solid ${theme.palette.divider}`,
           background: theme.palette.background.paper,
         }}>
+          {/* Mark as Sent — only for draft invoices */}
+          {inv.status === 'draft' && (
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={<MarkEmailReadIcon />}
+              disabled={markSentMutation.isPending}
+              onClick={() => markSentMutation.mutate()}
+              sx={{
+                mb: 1.5, py: 1.2, borderRadius: '10px', fontWeight: 700,
+                background: 'linear-gradient(135deg,#34C759,#30B350)',
+                '&:hover': { background: 'linear-gradient(135deg,#2DB34A,#289A40)' },
+              }}
+            >
+              {markSentMutation.isPending ? 'Marking as Sent…' : 'Mark as Sent'}
+            </Button>
+          )}
+
           {/* Payment actions row */}
           {(inv.balance ?? 0) > 0 && (
             <Stack direction="row" spacing={1.5} sx={{ mb: inv.invoice_url ? 1 : 0 }}>
@@ -329,11 +361,11 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
       />
 
       <Snackbar
-        open={copied}
-        autoHideDuration={2000}
-        onClose={() => setCopied(false)}
+        open={!!toast || copied}
+        autoHideDuration={2500}
+        onClose={() => { setToast(null); setCopied(false); }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        message="Payment link copied!"
+        message={toast ?? 'Payment link copied!'}
       />
     </Drawer>
   );

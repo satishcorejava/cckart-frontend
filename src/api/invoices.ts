@@ -24,6 +24,10 @@ export const fetchInvoicePaymentUrl = async (id: string): Promise<string> => {
   return res.data.data.payment_url;
 };
 
+export const markInvoiceAsSent = async (id: string): Promise<void> => {
+  await client.post(`/invoices/${id}/mark_sent`);
+};
+
 export const deleteContact = async (id: string): Promise<void> => {
   await client.delete(`/contacts/${id}`);
 };

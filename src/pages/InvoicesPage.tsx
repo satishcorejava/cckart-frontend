@@ -5,8 +5,10 @@ import {
   Pagination, Snackbar, useTheme, useMediaQuery,
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import PaymentsIcon   from '@mui/icons-material/Payments';
-import ShareIcon      from '@mui/icons-material/Share';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import PaymentsIcon      from '@mui/icons-material/Payments';
+import ShareIcon         from '@mui/icons-material/Share';
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import StatusBadge          from '../components/StatusBadge';
 import PageLoader           from '../components/PageLoader';
 import ErrorAlert           from '../components/ErrorAlert';
@@ -14,7 +16,7 @@ import RecordPaymentDialog  from '../components/RecordPaymentDialog';
 import InvoiceDetailDrawer  from '../components/InvoiceDetailDrawer';
 import TableToolbar         from '../components/TableToolbar';
 import { useInvoices }      from '../hooks/useInvoices';
-import { fetchInvoicePaymentUrl } from '../api/invoices';
+import { fetchInvoicePaymentUrl, markInvoiceAsSent } from '../api/invoices';
 import type { Invoice }     from '../types';
 
 const fmt    = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -134,6 +136,16 @@ export default function InvoicesPage() {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [shareToast,      setShareToast]      = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
+  const markSentMutation = useMutation({
+    mutationFn: (id: string) => markInvoiceAsSent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      setShareToast('Invoice marked as sent');
+    },
+    onError: () => setShareToast('Failed to mark as sent'),
+  });
+
   const handleShare = async (invoiceId: string) => {
     try {
       const url = await fetchInvoicePaymentUrl(invoiceId);
@@ -170,16 +182,29 @@ export default function InvoicesPage() {
     { field: 'balance',        headerName: 'Balance Due', width: 120, type: 'number', valueFormatter: (v: number) => fmt(v), cellClassName: (p) => (p.value > 0 ? 'cell-balance' : '') },
     { field: 'status',         headerName: 'Status',      width: 110, renderCell: (p) => <StatusBadge status={p.value as string} /> },
     {
-      field: '_actions', headerName: '', width: 56, sortable: false, disableColumnMenu: true,
+      field: '_actions', headerName: '', width: 100, sortable: false, disableColumnMenu: true,
       renderCell: (p) => {
         const inv = p.row as Invoice;
-        if (!PAYABLE_STATUSES.has(inv.status) || inv.balance <= 0) return null;
         return (
-          <Tooltip title="Record payment">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setPayingInvoice(inv); }} sx={{ color: '#007AFF' }}>
-              <PaymentsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <Stack direction="row" spacing={0.25} alignItems="center">
+            {inv.status === 'draft' && (
+              <Tooltip title="Mark as Sent">
+                <IconButton size="small"
+                  disabled={markSentMutation.isPending}
+                  onClick={(e) => { e.stopPropagation(); markSentMutation.mutate(inv.invoice_id); }}
+                  sx={{ color: '#34C759' }}>
+                  <MarkEmailReadIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {PAYABLE_STATUSES.has(inv.status) && inv.balance > 0 && (
+              <Tooltip title="Record payment">
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); setPayingInvoice(inv); }} sx={{ color: '#007AFF' }}>
+                  <PaymentsIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
         );
       },
     },
