@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const client = axios.create({
   baseURL: '/api',
-  timeout: 20_000,
+  timeout: 60_000,
   headers: { 'Content-Type': 'application/json' },
 });
 
