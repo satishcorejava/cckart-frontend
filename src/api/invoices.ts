@@ -19,6 +19,11 @@ export const fetchInvoiceDetail = async (id: string): Promise<InvoiceDetail> => 
   return res.data.data;
 };
 
+export const fetchInvoicePaymentUrl = async (id: string): Promise<string> => {
+  const res = await client.get<ApiResponse<{ payment_url: string }>>(`/invoices/${id}/payment-url`);
+  return res.data.data.payment_url;
+};
+
 export const deleteContact = async (id: string): Promise<void> => {
   await client.delete(`/contacts/${id}`);
 };

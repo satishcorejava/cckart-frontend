@@ -2,10 +2,11 @@ import { useState } from 'react';
 import {
   Box, Typography, ToggleButton, ToggleButtonGroup, Paper, Tooltip,
   IconButton, Divider, Stack, Card, CardActionArea, CardContent,
-  Pagination, useTheme, useMediaQuery,
+  Pagination, Snackbar, useTheme, useMediaQuery,
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import PaymentsIcon   from '@mui/icons-material/Payments';
+import ShareIcon      from '@mui/icons-material/Share';
 import StatusBadge          from '../components/StatusBadge';
 import PageLoader           from '../components/PageLoader';
 import ErrorAlert           from '../components/ErrorAlert';
@@ -13,6 +14,7 @@ import RecordPaymentDialog  from '../components/RecordPaymentDialog';
 import InvoiceDetailDrawer  from '../components/InvoiceDetailDrawer';
 import TableToolbar         from '../components/TableToolbar';
 import { useInvoices }      from '../hooks/useInvoices';
+import { fetchInvoicePaymentUrl } from '../api/invoices';
 import type { Invoice }     from '../types';
 
 const fmt    = (n: number) => '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -54,10 +56,11 @@ const TOGGLE_SX = {
 };
 
 // ── Mobile card ───────────────────────────────────────────────────────────────
-function InvoiceCard({ inv, onView, onPay }: {
+function InvoiceCard({ inv, onView, onPay, onShare }: {
   inv: Invoice;
   onView: (id: string) => void;
   onPay: (inv: Invoice) => void;
+  onShare: (id: string) => void;
 }) {
   const canPay = PAYABLE_STATUSES.has(inv.status) && inv.balance > 0;
   return (
@@ -83,21 +86,34 @@ function InvoiceCard({ inv, onView, onPay }: {
                   Due {fmt(inv.balance)}
                 </Typography>
               )}
-              {canPay && (
-                <Tooltip title="Record payment">
+              <Stack direction="row" spacing={0.5}>
+                <Tooltip title="Share payment link">
                   <IconButton
                     size="small"
-                    onClick={(e) => { e.stopPropagation(); onPay(inv); }}
-                    sx={{
-                      color: '#fff', background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
-                      width: 30, height: 30,
-                      '&:hover': { background: 'linear-gradient(135deg,#0062CC,#1A9ADB)' },
-                    }}
+                    onClick={(e) => { e.stopPropagation(); onShare(inv.invoice_id); }}
+                    sx={{ color: '#25D366', width: 30, height: 30,
+                      border: '1px solid #25D366',
+                      '&:hover': { background: 'rgba(37,211,102,0.08)' } }}
                   >
-                    <PaymentsIcon sx={{ fontSize: 15 }} />
+                    <ShareIcon sx={{ fontSize: 15 }} />
                   </IconButton>
                 </Tooltip>
-              )}
+                {canPay && (
+                  <Tooltip title="Record payment">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); onPay(inv); }}
+                      sx={{
+                        color: '#fff', background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
+                        width: 30, height: 30,
+                        '&:hover': { background: 'linear-gradient(135deg,#0062CC,#1A9ADB)' },
+                      }}
+                    >
+                      <PaymentsIcon sx={{ fontSize: 15 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Stack>
             </Stack>
           </Stack>
         </CardContent>
@@ -116,6 +132,22 @@ export default function InvoicesPage() {
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [payingInvoice,   setPayingInvoice]   = useState<Invoice | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [shareToast,      setShareToast]      = useState<string | null>(null);
+
+  const handleShare = async (invoiceId: string) => {
+    try {
+      const url = await fetchInvoicePaymentUrl(invoiceId);
+      if (!url) { setShareToast('No payment link available'); return; }
+      if (navigator.share) {
+        await navigator.share({ title: 'Invoice Payment', url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareToast('Payment link copied!');
+      }
+    } catch {
+      setShareToast('Could not fetch payment link');
+    }
+  };
 
   const { dateStart, dateEnd } = resolveDates(datePreset);
   const { data, isLoading, error, refetch } = useInvoices(
@@ -204,6 +236,7 @@ export default function InvoicesPage() {
                     inv={inv}
                     onView={setSelectedInvoiceId}
                     onPay={setPayingInvoice}
+                    onShare={handleShare}
                   />
                 ))
               )}
@@ -253,6 +286,13 @@ export default function InvoicesPage() {
 
       <RecordPaymentDialog invoice={payingInvoice} onClose={() => setPayingInvoice(null)} />
       <InvoiceDetailDrawer invoiceId={selectedInvoiceId} onClose={() => setSelectedInvoiceId(null)} />
+      <Snackbar
+        open={!!shareToast}
+        autoHideDuration={2500}
+        onClose={() => setShareToast(null)}
+        message={shareToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 }

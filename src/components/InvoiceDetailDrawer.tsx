@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Drawer, Box, Typography, Divider, Chip, Stack, Table, TableBody,
   TableCell, TableHead, TableRow, Paper, IconButton, Skeleton, Alert,
-  Button, useTheme, useMediaQuery,
+  Button, Tooltip, Snackbar, useTheme, useMediaQuery,
 } from '@mui/material';
 import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
 import PhoneIcon        from '@mui/icons-material/Phone';
 import LocationOnIcon   from '@mui/icons-material/LocationOn';
 import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
+import ContentCopyIcon  from '@mui/icons-material/ContentCopy';
+import WhatsAppIcon     from '@mui/icons-material/WhatsApp';
 import { fetchInvoiceDetail } from '../api/invoices';
 import StatusBadge from './StatusBadge';
 import RecordPaymentDialog from './RecordPaymentDialog';
@@ -26,7 +28,19 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
   const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [paying, setPaying] = useState(false);
+  const [paying,   setPaying]   = useState(false);
+  const [copied,   setCopied]   = useState(false);
+
+  const copyLink = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => { setCopied(true); });
+  };
+
+  const shareWhatsApp = (inv: { invoice_number: string; balance: number; invoice_url: string }) => {
+    const text = encodeURIComponent(
+      `Hi, please find your invoice ${inv.invoice_number}.\nBalance due: ₹${inv.balance.toLocaleString('en-IN')}.\nPay here: ${inv.invoice_url}`
+    );
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
 
   const { data: inv, isLoading, error } = useQuery({
     queryKey: ['invoice', invoiceId],
@@ -238,39 +252,73 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
       </Box>
 
       {/* Sticky footer */}
-      {!isLoading && inv && (inv.balance ?? 0) > 0 && (
+      {!isLoading && inv && (
         <Box sx={{
           px: 3, py: 2,
           borderTop: `1px solid ${theme.palette.divider}`,
           background: theme.palette.background.paper,
-          display: 'flex', gap: 1.5,
         }}>
-          <Button
-            variant="outlined"
-            fullWidth
-            onClick={() => setPaying(true)}
-            sx={{ py: 1.2, borderRadius: '10px', fontWeight: 700 }}
-          >
-            Record Payment
-          </Button>
+          {/* Payment actions row */}
+          {(inv.balance ?? 0) > 0 && (
+            <Stack direction="row" spacing={1.5} sx={{ mb: inv.invoice_url ? 1 : 0 }}>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => setPaying(true)}
+                sx={{ py: 1.2, borderRadius: '10px', fontWeight: 700 }}
+              >
+                Record Payment
+              </Button>
 
+              {inv.invoice_url && (
+                <Button
+                  variant="contained"
+                  fullWidth
+                  endIcon={<OpenInNewIcon />}
+                  href={inv.invoice_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    py: 1.2,
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
+                    fontWeight: 700,
+                  }}
+                >
+                  Pay Online
+                </Button>
+              )}
+            </Stack>
+          )}
+
+          {/* Share payment link row */}
           {inv.invoice_url && (
-            <Button
-              variant="contained"
-              fullWidth
-              endIcon={<OpenInNewIcon />}
-              href={inv.invoice_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                py: 1.2,
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
-                fontWeight: 700,
-              }}
-            >
-              Pay Online
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Tooltip title="Copy payment link">
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ContentCopyIcon sx={{ fontSize: 16 }} />}
+                  onClick={() => copyLink(inv.invoice_url!)}
+                  sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.8rem' }}
+                >
+                  Copy Link
+                </Button>
+              </Tooltip>
+              <Tooltip title="Share via WhatsApp">
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<WhatsAppIcon sx={{ fontSize: 16, color: '#25D366' }} />}
+                  onClick={() => shareWhatsApp(inv as { invoice_number: string; balance: number; invoice_url: string })}
+                  sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.8rem',
+                    borderColor: '#25D366', color: '#25D366',
+                    '&:hover': { borderColor: '#128C7E', background: 'rgba(37,211,102,0.06)' } }}
+                >
+                  WhatsApp
+                </Button>
+              </Tooltip>
+            </Stack>
           )}
         </Box>
       )}
@@ -278,6 +326,14 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
       <RecordPaymentDialog
         invoice={paying && inv ? (inv as unknown as Invoice) : null}
         onClose={() => setPaying(false)}
+      />
+
+      <Snackbar
+        open={copied}
+        autoHideDuration={2000}
+        onClose={() => setCopied(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        message="Payment link copied!"
       />
     </Drawer>
   );
