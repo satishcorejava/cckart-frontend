@@ -15,6 +15,7 @@ import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import { fetchInvoiceDetail, markInvoiceAsSent, enableInvoicePayment } from '../api/invoices';
 import StatusBadge from './StatusBadge';
 import RecordPaymentDialog from './RecordPaymentDialog';
+import PaymentWatcherSheet from './PaymentWatcherSheet';
 import type { Invoice } from '../types';
 
 const fmt  = (n: number | undefined | null) => '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -31,10 +32,11 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
 
   const queryClient = useQueryClient();
 
-  const [paying,      setPaying]      = useState(false);
-  const [copied,      setCopied]      = useState(false);
-  const [toast,       setToast]       = useState<string | null>(null);
-  const [paymentUrl,  setPaymentUrl]  = useState<string | null>(null);
+  const [paying,       setPaying]       = useState(false);
+  const [copied,       setCopied]       = useState(false);
+  const [toast,        setToast]        = useState<string | null>(null);
+  const [paymentUrl,   setPaymentUrl]   = useState<string | null>(null);
+  const [watcherOpen,  setWatcherOpen]  = useState(false);
 
   const enablePaymentMutation = useMutation({
     mutationFn: () => enableInvoicePayment(invoiceId!),
@@ -317,15 +319,15 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
                 <Button
                   variant="contained"
                   fullWidth
-                  endIcon={enablePaymentMutation.isPending ? undefined : <OpenInNewIcon />}
                   disabled={enablePaymentMutation.isPending}
                   onClick={async () => {
                     try {
                       const url = await enableInvoicePayment(invoiceId!);
-                      window.open(url || inv.invoice_url!, '_blank', 'noopener,noreferrer');
+                      setPaymentUrl(url || inv.invoice_url!);
                     } catch {
-                      window.open(inv.invoice_url!, '_blank', 'noopener,noreferrer');
+                      setPaymentUrl(inv.invoice_url!);
                     }
+                    setWatcherOpen(true);
                   }}
                   sx={{
                     py: 1.2,
@@ -334,7 +336,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
                     fontWeight: 700,
                   }}
                 >
-                  {enablePaymentMutation.isPending ? 'Opening…' : 'Pay Online'}
+                  {enablePaymentMutation.isPending ? 'Preparing…' : 'Pay Online'}
                 </Button>
               )}
             </Stack>
@@ -371,9 +373,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
                       <Button
                         size="small"
                         endIcon={<OpenInNewIcon sx={{ fontSize: 13 }} />}
-                        href={activeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => setWatcherOpen(true)}
                         sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 700,
                           color: '#007AFF', p: '2px 8px' }}
                       >
@@ -433,6 +433,20 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
       <RecordPaymentDialog
         invoice={paying && inv ? (inv as unknown as Invoice) : null}
         onClose={() => setPaying(false)}
+      />
+
+      <PaymentWatcherSheet
+        open={watcherOpen && !!inv}
+        invoiceId={invoiceId}
+        paymentUrl={paymentUrl || inv?.invoice_url || ''}
+        invoiceNumber={inv?.invoice_number ?? ''}
+        customerName={inv?.customer_name ?? ''}
+        balanceDue={inv?.balance ?? 0}
+        onClose={() => setWatcherOpen(false)}
+        onPaid={() => {
+          queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+          queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        }}
       />
 
       <Snackbar
