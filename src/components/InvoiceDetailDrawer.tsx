@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Drawer, Box, Typography, Divider, Chip, Stack, Table, TableBody,
   TableCell, TableHead, TableRow, Paper, IconButton, Skeleton, Alert,
-  Button, Tooltip, Snackbar, useTheme, useMediaQuery,
+  Button, Snackbar, useTheme, useMediaQuery,
 } from '@mui/material';
 import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
 import PhoneIcon        from '@mui/icons-material/Phone';
@@ -12,7 +12,7 @@ import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
 import ContentCopyIcon  from '@mui/icons-material/ContentCopy';
 import WhatsAppIcon     from '@mui/icons-material/WhatsApp';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
-import { fetchInvoiceDetail, markInvoiceAsSent } from '../api/invoices';
+import { fetchInvoiceDetail, markInvoiceAsSent, enableInvoicePayment } from '../api/invoices';
 import StatusBadge from './StatusBadge';
 import RecordPaymentDialog from './RecordPaymentDialog';
 import type { Invoice } from '../types';
@@ -31,9 +31,20 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
 
   const queryClient = useQueryClient();
 
-  const [paying,   setPaying]   = useState(false);
-  const [copied,   setCopied]   = useState(false);
-  const [toast,    setToast]    = useState<string | null>(null);
+  const [paying,      setPaying]      = useState(false);
+  const [copied,      setCopied]      = useState(false);
+  const [toast,       setToast]       = useState<string | null>(null);
+  const [paymentUrl,  setPaymentUrl]  = useState<string | null>(null);
+
+  const enablePaymentMutation = useMutation({
+    mutationFn: () => enableInvoicePayment(invoiceId!),
+    onSuccess: (url) => {
+      setPaymentUrl(url);
+      queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      setToast('Payment link generated!');
+    },
+    onError: () => setToast('Failed to enable payment'),
+  });
 
   const markSentMutation = useMutation({
     mutationFn: () => markInvoiceAsSent(invoiceId!),
@@ -58,7 +69,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
 
   const { data: inv, isLoading, error } = useQuery({
     queryKey: ['invoice', invoiceId],
-    queryFn:  () => fetchInvoiceDetail(invoiceId!),
+    queryFn:  () => { setPaymentUrl(null); return fetchInvoiceDetail(invoiceId!); },
     enabled:  !!invoiceId,
     staleTime: 60_000,
   });
@@ -323,34 +334,92 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
             </Stack>
           )}
 
-          {/* Share payment link row */}
-          {inv.invoice_url && (
-            <Stack direction="row" spacing={1}>
-              <Tooltip title="Copy payment link">
+          {/* Enable Zoho Payment link */}
+          {(inv.balance ?? 0) > 0 && (
+            <Box sx={{ mb: 1 }}>
+              {/* Generate button — shown until a URL is available */}
+              {!paymentUrl && !inv.invoice_url && (
                 <Button
                   variant="outlined"
-                  size="small"
-                  startIcon={<ContentCopyIcon sx={{ fontSize: 16 }} />}
-                  onClick={() => copyLink(inv.invoice_url!)}
-                  sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.8rem' }}
+                  fullWidth
+                  disabled={enablePaymentMutation.isPending}
+                  onClick={() => enablePaymentMutation.mutate()}
+                  sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none',
+                    borderColor: '#007AFF', color: '#007AFF',
+                    '&:hover': { background: 'rgba(0,122,255,0.06)' } }}
                 >
-                  Copy Link
+                  {enablePaymentMutation.isPending ? 'Generating…' : '⚡ Generate Payment Link'}
                 </Button>
-              </Tooltip>
-              <Tooltip title="Share via WhatsApp">
+              )}
+
+              {/* Generated / existing payment URL display */}
+              {(paymentUrl || inv.invoice_url) && (() => {
+                const activeUrl = paymentUrl || inv.invoice_url!;
+                return (
+                  <Box sx={{ p: 1.5, borderRadius: '10px', border: '1px solid',
+                    borderColor: 'success.light', background: 'rgba(52,199,89,0.06)' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                      <Typography variant="caption" fontWeight={700} color="success.main">
+                        ✓ Payment Link Ready
+                      </Typography>
+                      <Button
+                        size="small"
+                        endIcon={<OpenInNewIcon sx={{ fontSize: 13 }} />}
+                        href={activeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 700,
+                          color: '#007AFF', p: '2px 8px' }}
+                      >
+                        Open
+                      </Button>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary"
+                      sx={{ wordBreak: 'break-all', display: 'block', mb: 1 }}>
+                      {activeUrl}
+                    </Typography>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
+                        onClick={() => copyLink(activeUrl)}
+                        sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.78rem' }}
+                      >
+                        Copy Link
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<WhatsAppIcon sx={{ fontSize: 14, color: '#25D366' }} />}
+                        onClick={() => shareWhatsApp({
+                          invoice_number: inv.invoice_number,
+                          balance: inv.balance,
+                          invoice_url: activeUrl,
+                        })}
+                        sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.78rem',
+                          borderColor: '#25D366', color: '#25D366',
+                          '&:hover': { borderColor: '#128C7E', background: 'rgba(37,211,102,0.06)' } }}
+                      >
+                        WhatsApp
+                      </Button>
+                    </Stack>
+                  </Box>
+                );
+              })()}
+
+              {/* Re-generate if already has URL but want to refresh */}
+              {inv.invoice_url && (
                 <Button
-                  variant="outlined"
                   size="small"
-                  startIcon={<WhatsAppIcon sx={{ fontSize: 16, color: '#25D366' }} />}
-                  onClick={() => shareWhatsApp(inv as { invoice_number: string; balance: number; invoice_url: string })}
-                  sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.8rem',
-                    borderColor: '#25D366', color: '#25D366',
-                    '&:hover': { borderColor: '#128C7E', background: 'rgba(37,211,102,0.06)' } }}
+                  disabled={enablePaymentMutation.isPending}
+                  onClick={() => enablePaymentMutation.mutate()}
+                  sx={{ mt: 0.5, textTransform: 'none', fontSize: '0.72rem', color: 'text.secondary' }}
                 >
-                  WhatsApp
+                  {enablePaymentMutation.isPending ? 'Refreshing…' : '↻ Re-enable Zoho Payments'}
                 </Button>
-              </Tooltip>
-            </Stack>
+              )}
+            </Box>
           )}
         </Box>
       )}

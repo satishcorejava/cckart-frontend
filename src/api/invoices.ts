@@ -28,6 +28,11 @@ export const markInvoiceAsSent = async (id: string): Promise<void> => {
   await client.post(`/invoices/${id}/mark_sent`);
 };
 
+export const enableInvoicePayment = async (id: string): Promise<string> => {
+  const res = await client.post<ApiResponse<{ payment_url: string }>>(`/invoices/${id}/enable-payment`);
+  return res.data.data.payment_url;
+};
+
 export const deleteContact = async (id: string): Promise<void> => {
   await client.delete(`/contacts/${id}`);
 };
