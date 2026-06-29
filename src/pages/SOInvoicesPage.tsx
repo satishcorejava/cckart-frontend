@@ -94,8 +94,8 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
               const canPay = PAYABLE.has(inv.status) && inv.balance > 0;
               return (
                 <Card key={inv.invoice_id} variant="outlined"
-                  sx={{ borderRadius: '12px', '&:hover': { borderColor: 'primary.main' } }}>
-                  <CardActionArea onClick={() => setSelectedId(inv.invoice_id)} sx={{ p: 0 }}>
+                  sx={{ borderRadius: '12px', cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}
+                  onClick={() => setSelectedId(inv.invoice_id)}>
                   <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                       <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -117,8 +117,8 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
                         <Stack direction="row" spacing={0.5}>
                           {inv.invoice_url && (
                             <Tooltip title="Pay Online">
-                              <IconButton size="small" href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()} sx={{ color: '#007AFF' }}>
+                              <IconButton component="a" size="small" href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{ color: '#007AFF' }}>
                                 <OpenInNewIcon sx={{ fontSize: 15 }} />
                               </IconButton>
                             </Tooltip>
@@ -137,7 +137,6 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
                       </Stack>
                     </Stack>
                   </CardContent>
-                  </CardActionArea>
                 </Card>
               );
             })}

@@ -17,43 +17,45 @@ const fmt = (n: number) =>
 const PAID_STATUSES = new Set(['paid', 'payment_made']);
 
 interface Props {
-  open:        boolean;
-  invoiceId:   string | null;
-  paymentUrl:  string;
+  open:          boolean;
+  invoiceId:     string | null;
+  paymentUrl:    string;
   invoiceNumber: string;
   customerName:  string;
   balanceDue:    number;
-  onClose:     () => void;
-  onPaid:      () => void;
+  onClose:       () => void;
+  onPaid:        () => void;
 }
 
 export default function PaymentWatcherSheet({
   open, invoiceId, paymentUrl, invoiceNumber, customerName, balanceDue, onClose, onPaid,
 }: Props) {
-  const [paid,    setPaid]    = useState(false);
-  const [copied,  setCopied]  = useState(false);
-  const popupRef = useRef<Window | null>(null);
+  const [copied,       setCopied]       = useState(false);
+  const [paidNotified, setPaidNotified] = useState(false);
+  const popupRef      = useRef<Window | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Poll invoice status every 5 s while sheet is open and not yet paid
-  useQuery({
+  // Poll invoice status every 5 s while sheet is open
+  const { data: watchData } = useQuery({
     queryKey: ['payment-watch', invoiceId],
     queryFn:  () => fetchInvoiceDetail(invoiceId!),
-    enabled:  open && !!invoiceId && !paid,
-    refetchInterval: 5_000,
+    enabled:  open && !!invoiceId,
+    refetchInterval: (query) => {
+      const d = query.state.data;
+      if (d && (PAID_STATUSES.has(d.status) || d.balance <= 0)) return false; // stop polling
+      return 5_000;
+    },
     refetchIntervalInBackground: true,
     staleTime: 0,
-    select: (data) => {
-      if (PAID_STATUSES.has(data.status) || data.balance <= 0) {
-        setPaid(true);
-      }
-      return data;
-    },
   });
 
-  // Auto-close 3 s after payment detected
+  // Derive paid from latest data
+  const isPaid = !!(watchData && (PAID_STATUSES.has(watchData.status) || watchData.balance <= 0));
+
+  // Trigger onPaid + auto-close once when paid is first detected
   useEffect(() => {
-    if (paid) {
+    if (isPaid && !paidNotified) {
+      setPaidNotified(true);
       onPaid();
       closeTimerRef.current = setTimeout(() => {
         popupRef.current?.close();
@@ -61,11 +63,11 @@ export default function PaymentWatcherSheet({
       }, 3000);
     }
     return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); };
-  }, [paid]);
+  }, [isPaid, paidNotified]);
 
-  // Reset state when sheet opens for a new invoice
+  // Reset per invoice open
   useEffect(() => {
-    if (open) { setPaid(false); setCopied(false); }
+    if (open) { setCopied(false); setPaidNotified(false); }
   }, [open, invoiceId]);
 
   const openPopup = () => {
@@ -115,7 +117,7 @@ export default function PaymentWatcherSheet({
 
         <Divider sx={{ mb: 2.5 }} />
 
-        {paid ? (
+        {isPaid ? (
           /* ── Success state ── */
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <CheckCircleIcon sx={{ fontSize: 72, color: '#34C759', mb: 2 }} />
@@ -145,21 +147,23 @@ export default function PaymentWatcherSheet({
             </Stack>
 
             {/* QR Code */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-              <Box sx={{
-                p: 2, borderRadius: '16px', border: '1px solid',
-                borderColor: 'divider', background: '#fff',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-              }}>
-                <QRCodeSVG
-                  value={paymentUrl}
-                  size={200}
-                  level="M"
-                  includeMargin={false}
-                  style={{ display: 'block' }}
-                />
+            {paymentUrl && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                <Box sx={{
+                  p: 2, borderRadius: '16px', border: '1px solid',
+                  borderColor: 'divider', background: '#fff',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                }}>
+                  <QRCodeSVG
+                    value={paymentUrl}
+                    size={200}
+                    level="M"
+                    includeMargin={false}
+                    style={{ display: 'block' }}
+                  />
+                </Box>
               </Box>
-            </Box>
+            )}
 
             <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
               Scan with phone to pay via UPI / Card / NetBanking
