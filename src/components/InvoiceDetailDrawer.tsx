@@ -5,17 +5,19 @@ import {
   TableCell, TableHead, TableRow, Paper, IconButton, Skeleton, Alert,
   Button, Snackbar, useTheme, useMediaQuery,
 } from '@mui/material';
-import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
+import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
+import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
 import PhoneIcon        from '@mui/icons-material/Phone';
 import LocationOnIcon   from '@mui/icons-material/LocationOn';
 import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
 import ContentCopyIcon  from '@mui/icons-material/ContentCopy';
 import WhatsAppIcon     from '@mui/icons-material/WhatsApp';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
-import { fetchInvoiceDetail, markInvoiceAsSent, enableInvoicePayment } from '../api/invoices';
+import { fetchInvoiceDetail, markInvoiceAsSent, enableInvoicePayment, closeLinkedSalesOrders } from '../api/invoices';
 import StatusBadge from './StatusBadge';
 import RecordPaymentDialog from './RecordPaymentDialog';
 import PaymentWatcherSheet from './PaymentWatcherSheet';
+import UpiPaymentSheet from './UpiPaymentSheet';
 import type { Invoice } from '../types';
 
 const fmt  = (n: number | undefined | null) => '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -37,6 +39,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
   const [toast,        setToast]        = useState<string | null>(null);
   const [paymentUrl,   setPaymentUrl]   = useState<string | null>(null);
   const [watcherOpen,  setWatcherOpen]  = useState(false);
+  const [upiOpen,      setUpiOpen]      = useState(false);
 
   const enablePaymentMutation = useMutation({
     mutationFn: () => enableInvoicePayment(invoiceId!),
@@ -303,18 +306,42 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
             </Button>
           )}
 
-          {/* Payment actions row */}
-          {(inv.balance ?? 0) > 0 && (
-            <Stack direction="row" spacing={1.5} sx={{ mb: inv.invoice_url ? 1 : 0 }}>
-              <Button
-                variant="outlined"
-                fullWidth
-                onClick={() => setPaying(true)}
-                sx={{ py: 1.2, borderRadius: '10px', fontWeight: 700 }}
-              >
-                Record Payment
-              </Button>
+          {/* Payment actions row — hidden when fully paid */}
+          {['paid', 'payment_made'].includes(inv.status) || (inv.balance ?? 0) <= 0 ? (
+            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}
+              sx={{ py: 1.4, mb: 1, borderRadius: '10px', background: 'rgba(52,199,89,0.10)',
+                border: '1px solid', borderColor: 'success.light' }}>
+              <CheckCircleIcon sx={{ color: '#34C759', fontSize: 20 }} />
+              <Typography fontWeight={700} sx={{ color: '#34C759' }}>Already Paid</Typography>
+            </Stack>
+          ) : (
+            <Stack spacing={1.5} sx={{ mb: inv.invoice_url ? 1 : 0 }}>
+              {/* Top row: Record Payment + UPI QR */}
+              <Stack direction="row" spacing={1.5}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => setPaying(true)}
+                  sx={{ py: 1.2, borderRadius: '10px', fontWeight: 700 }}
+                >
+                  Record Payment
+                </Button>
 
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={() => setUpiOpen(true)}
+                  sx={{
+                    py: 1.2, borderRadius: '10px', fontWeight: 700,
+                    background: 'linear-gradient(135deg,#6C47FF,#A78BFA)',
+                    '&:hover': { background: 'linear-gradient(135deg,#5835E0,#8B5CF6)' },
+                  }}
+                >
+                  UPI QR Pay
+                </Button>
+              </Stack>
+
+              {/* Pay Online row (Zoho hosted page) */}
               {inv.invoice_url && (
                 <Button
                   variant="contained"
@@ -330,20 +357,19 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
                     setWatcherOpen(true);
                   }}
                   sx={{
-                    py: 1.2,
-                    borderRadius: '10px',
+                    py: 1.2, borderRadius: '10px',
                     background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
                     fontWeight: 700,
                   }}
                 >
-                  {enablePaymentMutation.isPending ? 'Preparing…' : 'Pay Online'}
+                  {enablePaymentMutation.isPending ? 'Preparing…' : 'Pay Online (Zoho)'}
                 </Button>
               )}
             </Stack>
           )}
 
-          {/* Enable Zoho Payment link */}
-          {(inv.balance ?? 0) > 0 && (
+          {/* Enable Zoho Payment link — only when balance is outstanding */}
+          {!['paid', 'payment_made'].includes(inv.status) && (inv.balance ?? 0) > 0 && (
             <Box sx={{ mb: 1 }}>
               {/* Generate button — shown until a URL is available */}
               {!paymentUrl && !inv.invoice_url && (
@@ -431,7 +457,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
       )}
 
       <RecordPaymentDialog
-        invoice={paying && inv ? (inv as unknown as Invoice) : null}
+        invoice={paying && inv && (inv.balance ?? 0) > 0 ? (inv as unknown as Invoice) : null}
         onClose={() => setPaying(false)}
       />
 
@@ -446,6 +472,21 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
         onPaid={() => {
           queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
           queryClient.invalidateQueries({ queryKey: ['invoices'] });
+          queryClient.invalidateQueries({ queryKey: ['salesorders'] });
+          if (invoiceId) closeLinkedSalesOrders(invoiceId).catch(() => {});
+        }}
+      />
+
+      <UpiPaymentSheet
+        open={upiOpen && !!inv}
+        inv={inv ?? null}
+        onClose={() => setUpiOpen(false)}
+        onPaid={() => {
+          setUpiOpen(false);
+          queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+          queryClient.invalidateQueries({ queryKey: ['invoices'] });
+          queryClient.invalidateQueries({ queryKey: ['salesorders'] });
+          if (invoiceId) closeLinkedSalesOrders(invoiceId).catch(() => {});
         }}
       />
 

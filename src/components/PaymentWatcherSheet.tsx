@@ -123,7 +123,7 @@ export default function PaymentWatcherSheet({
             <CheckCircleIcon sx={{ fontSize: 72, color: '#34C759', mb: 2 }} />
             <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>Payment Received!</Typography>
             <Typography variant="body2" color="text.secondary">
-              {invoiceNumber} has been marked as paid.
+              {invoiceNumber} has been marked as paid and linked sales orders closed.
             </Typography>
             <Typography variant="caption" color="text.disabled" display="block" sx={{ mt: 1 }}>
               Closing in 3 seconds…

@@ -34,6 +34,10 @@ export const enableInvoicePayment = async (id: string): Promise<string> => {
   return res.data.data.payment_url;
 };
 
+export const closeLinkedSalesOrders = async (id: string): Promise<void> => {
+  await client.post(`/invoices/${id}/close-so`);
+};
+
 export const deleteContact = async (id: string): Promise<void> => {
   await client.delete(`/contacts/${id}`);
 };
