@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 interface Env {
   ASSETS: Fetcher;
   API_ORIGIN: string;
