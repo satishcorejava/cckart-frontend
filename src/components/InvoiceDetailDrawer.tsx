@@ -317,10 +317,16 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
                 <Button
                   variant="contained"
                   fullWidth
-                  endIcon={<OpenInNewIcon />}
-                  href={inv.invoice_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  endIcon={enablePaymentMutation.isPending ? undefined : <OpenInNewIcon />}
+                  disabled={enablePaymentMutation.isPending}
+                  onClick={async () => {
+                    try {
+                      const url = await enableInvoicePayment(invoiceId!);
+                      window.open(url || inv.invoice_url!, '_blank', 'noopener,noreferrer');
+                    } catch {
+                      window.open(inv.invoice_url!, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
                   sx={{
                     py: 1.2,
                     borderRadius: '10px',
@@ -328,7 +334,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
                     fontWeight: 700,
                   }}
                 >
-                  Pay Online
+                  {enablePaymentMutation.isPending ? 'Opening…' : 'Pay Online'}
                 </Button>
               )}
             </Stack>
