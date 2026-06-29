@@ -11,7 +11,8 @@ import OpenInNewIcon  from '@mui/icons-material/OpenInNew';
 import PaymentsIcon   from '@mui/icons-material/Payments';
 import RefreshIcon    from '@mui/icons-material/Refresh';
 import StatusBadge    from '../components/StatusBadge';
-import RecordPaymentDialog from '../components/RecordPaymentDialog';
+import RecordPaymentDialog  from '../components/RecordPaymentDialog';
+import InvoiceDetailDrawer  from '../components/InvoiceDetailDrawer';
 import { fetchSalesOrdersForLookup, fetchSOInvoices, type LinkedInvoice } from '../api/soInvoices';
 import type { SalesOrder, Invoice } from '../types';
 
@@ -41,7 +42,8 @@ const PAYABLE = new Set(['unpaid', 'overdue', 'sent', 'partially_paid']);
 function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
   const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [paying, setPaying] = useState<LinkedInvoice | null>(null);
+  const [paying,     setPaying]     = useState<LinkedInvoice | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: invoices = [], isLoading, error, refetch } = useQuery({
     queryKey: ['so-invoices', so.salesorder_id],
@@ -89,7 +91,9 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
             {invoices.map((inv) => {
               const canPay = PAYABLE.has(inv.status) && inv.balance > 0;
               return (
-                <Card key={inv.invoice_id} variant="outlined" sx={{ borderRadius: '12px' }}>
+                <Card key={inv.invoice_id} variant="outlined"
+                  sx={{ borderRadius: '12px', '&:hover': { borderColor: 'primary.main' } }}>
+                  <CardActionArea onClick={() => setSelectedId(inv.invoice_id)} sx={{ p: 0 }}>
                   <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                       <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -112,14 +116,15 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
                           {inv.invoice_url && (
                             <Tooltip title="Pay Online">
                               <IconButton size="small" href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
-                                sx={{ color: '#007AFF' }}>
+                                onClick={(e) => e.stopPropagation()} sx={{ color: '#007AFF' }}>
                                 <OpenInNewIcon sx={{ fontSize: 15 }} />
                               </IconButton>
                             </Tooltip>
                           )}
                           {canPay && (
                             <Tooltip title="Record Payment">
-                              <IconButton size="small" onClick={() => setPaying(inv)}
+                              <IconButton size="small"
+                                onClick={(e) => { e.stopPropagation(); setPaying(inv); }}
                                 sx={{ color: '#fff', background: 'linear-gradient(135deg,#007AFF,#32ADE6)', width: 28, height: 28,
                                   '&:hover': { background: 'linear-gradient(135deg,#0062CC,#1A9ADB)' } }}>
                                 <PaymentsIcon sx={{ fontSize: 14 }} />
@@ -130,6 +135,7 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
                       </Stack>
                     </Stack>
                   </CardContent>
+                  </CardActionArea>
                 </Card>
               );
             })}
@@ -149,7 +155,8 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
                 {invoices.map((inv) => {
                   const canPay = PAYABLE.has(inv.status) && inv.balance > 0;
                   return (
-                    <TableRow key={inv.invoice_id} sx={{ '&:last-child td': { border: 0 } }}>
+                    <TableRow key={inv.invoice_id} onClick={() => setSelectedId(inv.invoice_id)}
+                      sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer', '&:hover': { background: 'rgba(0,122,255,0.06)' } }}>
                       <TableCell><Typography variant="body2" fontWeight={600}>{inv.invoice_number}</Typography></TableCell>
                       <TableCell><Typography variant="body2">{inv.date}</Typography></TableCell>
                       <TableCell><Typography variant="body2">{inv.due_date || '—'}</Typography></TableCell>
@@ -166,14 +173,14 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
                           {inv.invoice_url && (
                             <Tooltip title="Pay Online">
                               <IconButton size="small" href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
-                                sx={{ color: '#007AFF' }}>
+                                onClick={(e) => e.stopPropagation()} sx={{ color: '#007AFF' }}>
                                 <OpenInNewIcon sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
                           )}
                           {canPay && (
                             <Tooltip title="Record Payment">
-                              <IconButton size="small" onClick={() => setPaying(inv)} sx={{ color: '#007AFF' }}>
+                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); setPaying(inv); }} sx={{ color: '#007AFF' }}>
                                 <PaymentsIcon sx={{ fontSize: 16 }} />
                               </IconButton>
                             </Tooltip>
@@ -192,6 +199,10 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
       <RecordPaymentDialog
         invoice={paying ? (paying as unknown as Invoice) : null}
         onClose={() => setPaying(null)}
+      />
+      <InvoiceDetailDrawer
+        invoiceId={selectedId}
+        onClose={() => setSelectedId(null)}
       />
     </Box>
   );
