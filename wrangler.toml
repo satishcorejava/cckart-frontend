@@ -5,7 +5,8 @@ main = "src/worker.ts"
 [assets]
 directory = "./dist"
 not_found_handling = "single-page-application"
+binding = "ASSETS"
 
 [vars]
-# Override this in Cloudflare dashboard: Settings → Variables → API_ORIGIN
+# Set the real value in Cloudflare dashboard → Settings → Variables → API_ORIGIN
 API_ORIGIN = "https://your-railway-backend.up.railway.app"
