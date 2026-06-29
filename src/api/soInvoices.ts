@@ -20,11 +20,12 @@ export const fetchSOInvoices = async (salesOrderId: string): Promise<LinkedInvoi
 export const fetchSalesOrdersForLookup = async (
   dateStart?: string,
   dateEnd?: string,
+  search?: string,
   page = 1,
   perPage = 20,
 ): Promise<PagedResult<SalesOrder>> => {
   const res = await client.get<ApiResponse<PagedResult<SalesOrder>>>('/salesorders', {
-    params: { dateStart, dateEnd, page, perPage },
+    params: { dateStart, dateEnd, search: search || undefined, page, perPage },
   });
   return res.data.data;
 };

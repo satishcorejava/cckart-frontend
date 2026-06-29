@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box, Typography, ToggleButton, ToggleButtonGroup, Stack, Card, CardContent,
   CardActionArea, Chip, Divider, Skeleton, Alert, Paper,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton, Tooltip,
-  Pagination, useTheme, useMediaQuery,
+  Pagination, TextField, InputAdornment, useTheme, useMediaQuery,
 } from '@mui/material';
 import ArrowBackIcon  from '@mui/icons-material/ArrowBack';
 import OpenInNewIcon  from '@mui/icons-material/OpenInNew';
 import PaymentsIcon   from '@mui/icons-material/Payments';
 import RefreshIcon    from '@mui/icons-material/Refresh';
+import SearchIcon     from '@mui/icons-material/Search';
+import ClearIcon      from '@mui/icons-material/Clear';
 import StatusBadge    from '../components/StatusBadge';
 import RecordPaymentDialog  from '../components/RecordPaymentDialog';
 import InvoiceDetailDrawer  from '../components/InvoiceDetailDrawer';
@@ -212,13 +214,26 @@ const PER_PAGE = 20;
 
 // ── SO list panel ─────────────────────────────────────────────────────────────
 function SOListPanel({ onSelect }: { onSelect: (so: SalesOrder) => void }) {
-  const [datePreset, setDatePreset] = useState('today');
-  const [page, setPage] = useState(1);
+  const [datePreset,  setDatePreset]  = useState('today');
+  const [page,        setPage]        = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchDebounced(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchInput]);
+
   const { dateStart, dateEnd } = resolveDates(datePreset);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['so-lookup', dateStart, dateEnd, page],
-    queryFn:  () => fetchSalesOrdersForLookup(dateStart, dateEnd, page, PER_PAGE),
+    queryKey: ['so-lookup', dateStart, dateEnd, searchDebounced, page],
+    queryFn:  () => fetchSalesOrdersForLookup(dateStart, dateEnd, searchDebounced || undefined, page, PER_PAGE),
     staleTime: 60_000,
   });
 
@@ -246,6 +261,30 @@ function SOListPanel({ onSelect }: { onSelect: (so: SalesOrder) => void }) {
           </Tooltip>
         </Stack>
       </Stack>
+
+      {/* Search */}
+      <TextField
+        size="small"
+        fullWidth
+        placeholder="Search by customer name or SO number…"
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+            </InputAdornment>
+          ),
+          endAdornment: searchInput ? (
+            <InputAdornment position="end">
+              <IconButton size="small" onClick={() => setSearchInput('')}>
+                <ClearIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </InputAdornment>
+          ) : null,
+        }}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2, borderRadius: '10px' }}>{(error as Error).message}</Alert>}
 

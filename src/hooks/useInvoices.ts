@@ -5,11 +5,12 @@ export const useInvoices = (
   status?: string,
   dateStart?: string,
   dateEnd?: string,
+  search?: string,
   page = 1,
   perPage = 25,
 ) =>
   useQuery({
-    queryKey: ['invoices', status, dateStart, dateEnd, page, perPage],
-    queryFn:  () => fetchAllInvoices(status, dateStart, dateEnd, page, perPage),
+    queryKey: ['invoices', status, dateStart, dateEnd, search, page, perPage],
+    queryFn:  () => fetchAllInvoices(status, dateStart, dateEnd, search, page, perPage),
     staleTime: 5 * 60 * 1000,
   });

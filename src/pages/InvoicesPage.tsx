@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box, Typography, ToggleButton, ToggleButtonGroup, Paper, Tooltip,
   IconButton, Divider, Stack, Card, CardActionArea, CardContent,
-  Pagination, Snackbar, useTheme, useMediaQuery,
+  Pagination, Snackbar, InputAdornment, TextField, useTheme, useMediaQuery,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon  from '@mui/icons-material/Clear';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import PaymentsIcon      from '@mui/icons-material/Payments';
@@ -135,6 +137,18 @@ export default function InvoicesPage() {
   const [payingInvoice,   setPayingInvoice]   = useState<Invoice | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [shareToast,      setShareToast]      = useState<string | null>(null);
+  const [searchInput,     setSearchInput]     = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchDebounced(searchInput.trim());
+      setPaginationModel((m) => ({ ...m, page: 0 }));
+    }, 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchInput]);
 
   const queryClient = useQueryClient();
   const markSentMutation = useMutation({
@@ -164,6 +178,7 @@ export default function InvoicesPage() {
   const { dateStart, dateEnd } = resolveDates(datePreset);
   const { data, isLoading, error, refetch } = useInvoices(
     status || undefined, dateStart, dateEnd,
+    searchDebounced || undefined,
     paginationModel.page + 1, paginationModel.pageSize,
   );
 
@@ -229,6 +244,30 @@ export default function InvoicesPage() {
           ))}
         </ToggleButtonGroup>
       </Box>
+
+      {/* Search bar */}
+      <TextField
+        size="small"
+        fullWidth
+        placeholder="Search by customer name or invoice number…"
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+        sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+            </InputAdornment>
+          ),
+          endAdornment: searchInput ? (
+            <InputAdornment position="end">
+              <IconButton size="small" onClick={() => setSearchInput('')}>
+                <ClearIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </InputAdornment>
+          ) : null,
+        }}
+      />
 
       {error     && <ErrorAlert message={(error as Error).message} onRetry={refetch} />}
       {isLoading && <PageLoader />}

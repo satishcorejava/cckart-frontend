@@ -5,11 +5,12 @@ export const fetchAllInvoices = async (
   status?: string,
   dateStart?: string,
   dateEnd?: string,
+  search?: string,
   page = 1,
   perPage = 25,
 ): Promise<PagedResult<Invoice>> => {
   const res = await client.get<ApiResponse<PagedResult<Invoice>>>('/invoices', {
-    params: { status, dateStart, dateEnd, page, perPage },
+    params: { status, dateStart, dateEnd, search: search || undefined, page, perPage },
   });
   return res.data.data;
 };
