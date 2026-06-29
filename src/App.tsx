@@ -12,6 +12,7 @@ import SalesOrdersPage     from './pages/SalesOrdersPage';
 import ContactsPage        from './pages/ContactsPage';
 import ItemsPage           from './pages/ItemsPage';
 import OrganizationsPage   from './pages/OrganizationsPage';
+import SOInvoicesPage      from './pages/SOInvoicesPage';
 import { darkTheme, lightTheme } from './theme';
 
 const queryClient = new QueryClient({
@@ -52,6 +53,7 @@ function AppRoutes({ onToggleTheme }: { onToggleTheme: () => void }) {
         <Route path="/contacts"      element={<ContactsPage />}      />
         <Route path="/items"         element={<ItemsPage />}         />
         <Route path="/organizations" element={<OrganizationsPage />} />
+        <Route path="/so-invoices"   element={<SOInvoicesPage />}   />
         <Route path="/login"         element={<Navigate to="/" replace />} />
         <Route path="*"              element={<Navigate to="/" replace />} />
       </Routes>
