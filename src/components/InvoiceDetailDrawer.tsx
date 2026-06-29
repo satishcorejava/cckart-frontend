@@ -1,0 +1,284 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Drawer, Box, Typography, Divider, Chip, Stack, Table, TableBody,
+  TableCell, TableHead, TableRow, Paper, IconButton, Skeleton, Alert,
+  Button, useTheme, useMediaQuery,
+} from '@mui/material';
+import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
+import PhoneIcon        from '@mui/icons-material/Phone';
+import LocationOnIcon   from '@mui/icons-material/LocationOn';
+import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
+import { fetchInvoiceDetail } from '../api/invoices';
+import StatusBadge from './StatusBadge';
+import RecordPaymentDialog from './RecordPaymentDialog';
+import type { Invoice } from '../types';
+
+const fmt  = (n: number | undefined | null) => '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtQ = (n: number | undefined | null) => { const v = n ?? 0; return v % 1 === 0 ? String(v) : v.toFixed(2); };
+
+interface Props {
+  invoiceId: string | null;
+  onClose: () => void;
+}
+
+export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
+  const theme    = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const [paying, setPaying] = useState(false);
+
+  const { data: inv, isLoading, error } = useQuery({
+    queryKey: ['invoice', invoiceId],
+    queryFn:  () => fetchInvoiceDetail(invoiceId!),
+    enabled:  !!invoiceId,
+    staleTime: 60_000,
+  });
+
+  return (
+    <Drawer
+      anchor="right"
+      open={!!invoiceId}
+      onClose={onClose}
+      PaperProps={{
+        sx: {
+          width: { xs: '100vw', sm: 540, md: 620 },
+          p: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          top: { xs: '56px', sm: '64px' },
+          height: { xs: 'calc(100% - 56px)', sm: 'calc(100% - 64px)' },
+        },
+      }}
+    >
+      {/* Header */}
+      <Box sx={{
+        px: 2, py: 1.5,
+        display: 'flex', alignItems: 'center', gap: 1.5,
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        position: 'sticky', top: 0, zIndex: 1,
+        background: theme.palette.background.paper,
+      }}>
+        <IconButton onClick={onClose} size="small" sx={{ color: 'text.secondary' }}>
+          <ArrowBackIcon fontSize="small" />
+        </IconButton>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h6" fontWeight={700} noWrap>
+            {isLoading ? <Skeleton width={140} /> : inv?.invoice_number ?? 'Invoice'}
+          </Typography>
+          {!isLoading && inv && (
+            <Typography variant="caption" color="text.secondary" noWrap display="block">{inv.customer_name}</Typography>
+          )}
+        </Box>
+        {!isLoading && inv && <StatusBadge status={inv.status} />}
+      </Box>
+
+      {/* Body */}
+      <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
+        {error && (
+          <Alert severity="error" sx={{ borderRadius: '10px' }}>
+            {(error as Error).message}
+          </Alert>
+        )}
+
+        {isLoading && (
+          <Stack spacing={1.5}>
+            {[...Array(6)].map((_, i) => <Skeleton key={i} height={32} />)}
+          </Stack>
+        )}
+
+        {!isLoading && inv && (
+          <Stack spacing={3}>
+            {/* Meta info */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              {[
+                ['Invoice Date',  inv.date],
+                ['Due Date',      inv.due_date],
+                ['Reference',     inv.reference_number || '—'],
+                ['Currency',      inv.currency_code],
+              ].map(([label, value]) => (
+                <Box key={label}>
+                  <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
+                  <Typography variant="body2" fontWeight={600}>{value}</Typography>
+                </Box>
+              ))}
+            </Box>
+
+            {/* Customer contact & address */}
+            {(inv.mobile || inv.phone || inv.billing_address) && (
+              <>
+                <Divider />
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>Customer Info</Typography>
+                  <Stack spacing={1}>
+                    {(inv.mobile || inv.phone) && (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <Typography variant="body2">{inv.mobile || inv.phone}</Typography>
+                      </Stack>
+                    )}
+                    {inv.billing_address && (inv.billing_address.address || inv.billing_address.city) && (
+                      <Stack direction="row" spacing={1} alignItems="flex-start">
+                        <LocationOnIcon sx={{ fontSize: 16, color: 'text.secondary', mt: '2px' }} />
+                        <Typography variant="body2">
+                          {[
+                            inv.billing_address.address,
+                            inv.billing_address.city,
+                            inv.billing_address.state,
+                            inv.billing_address.zip,
+                            inv.billing_address.country,
+                          ].filter(Boolean).join(', ')}
+                        </Typography>
+                      </Stack>
+                    )}
+                    {inv.billing_address?.phone && inv.billing_address.phone !== inv.mobile && inv.billing_address.phone !== inv.phone && (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary">{inv.billing_address.phone} (billing)</Typography>
+                      </Stack>
+                    )}
+                  </Stack>
+                </Box>
+              </>
+            )}
+
+            <Divider />
+
+            {/* Line items */}
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>Items</Typography>
+              <Paper variant="outlined" sx={{ borderRadius: '10px', overflow: 'hidden' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ background: theme.palette.action.hover }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Item</TableCell>
+                      {!isMobile && <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Qty</TableCell>}
+                      {!isMobile && <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Rate</TableCell>}
+                      {!isMobile && <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Tax</TableCell>}
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Amount (₹)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {inv.line_items?.map((li) => (
+                      <TableRow key={li.line_item_id} sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600}>{li.name}</Typography>
+                          {li.description && (
+                            <Typography variant="caption" color="text.secondary">{li.description}</Typography>
+                          )}
+                          {isMobile && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {fmtQ(li.quantity)} {li.unit} × {fmt(li.rate)}
+                              {li.tax_name ? ` · ${li.tax_name} (${li.tax_percentage}%)` : ''}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        {!isMobile && <TableCell align="right"><Typography variant="body2">{fmtQ(li.quantity)} {li.unit}</Typography></TableCell>}
+                        {!isMobile && <TableCell align="right"><Typography variant="body2">{fmt(li.rate)}</Typography></TableCell>}
+                        {!isMobile && (
+                          <TableCell align="right">
+                            {li.tax_name
+                              ? <Chip label={`${li.tax_name} ${li.tax_percentage}%`} size="small" sx={{ fontSize: '0.68rem' }} />
+                              : <Typography variant="body2" color="text.disabled">—</Typography>}
+                          </TableCell>
+                        )}
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight={600}>{fmt(li.amount)}</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Box>
+
+            {/* Totals */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Stack spacing={0.75} sx={{ minWidth: 220 }}>
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" color="text.secondary">Sub Total</Typography>
+                  <Typography variant="body2">{fmt(inv.total - (inv.total - inv.balance > 0 ? 0 : 0))}</Typography>
+                </Stack>
+                <Divider />
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" fontWeight={700}>Total</Typography>
+                  <Typography variant="body2" fontWeight={700}>{fmt(inv.total ?? 0)}</Typography>
+                </Stack>
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="body2" color="text.secondary">Balance Due</Typography>
+                  <Typography variant="body2" fontWeight={700} color={(inv.balance ?? 0) > 0 ? 'error.main' : 'success.main'}>
+                    {fmt(inv.balance ?? 0)}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Box>
+
+            {/* Notes / Terms */}
+            {(inv.notes || inv.terms) && (
+              <>
+                <Divider />
+                <Box sx={{ display: 'grid', gridTemplateColumns: inv.notes && inv.terms ? '1fr 1fr' : '1fr', gap: 2 }}>
+                  {inv.notes && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 0.5 }}>Notes</Typography>
+                      <Typography variant="body2">{inv.notes}</Typography>
+                    </Box>
+                  )}
+                  {inv.terms && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 0.5 }}>Terms</Typography>
+                      <Typography variant="body2">{inv.terms}</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </>
+            )}
+          </Stack>
+        )}
+      </Box>
+
+      {/* Sticky footer */}
+      {!isLoading && inv && (inv.balance ?? 0) > 0 && (
+        <Box sx={{
+          px: 3, py: 2,
+          borderTop: `1px solid ${theme.palette.divider}`,
+          background: theme.palette.background.paper,
+          display: 'flex', gap: 1.5,
+        }}>
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => setPaying(true)}
+            sx={{ py: 1.2, borderRadius: '10px', fontWeight: 700 }}
+          >
+            Record Payment
+          </Button>
+
+          {inv.invoice_url && (
+            <Button
+              variant="contained"
+              fullWidth
+              endIcon={<OpenInNewIcon />}
+              href={inv.invoice_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                py: 1.2,
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
+                fontWeight: 700,
+              }}
+            >
+              Pay Online
+            </Button>
+          )}
+        </Box>
+      )}
+
+      <RecordPaymentDialog
+        invoice={paying && inv ? (inv as unknown as Invoice) : null}
+        onClose={() => setPaying(false)}
+      />
+    </Drawer>
+  );
+}
