@@ -4,7 +4,7 @@ import {
   Box, Typography, ToggleButton, ToggleButtonGroup, Stack, Card, CardContent,
   CardActionArea, Chip, Divider, Skeleton, Alert, Button, Paper,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton, Tooltip,
-  useTheme, useMediaQuery,
+  Pagination, useTheme, useMediaQuery,
 } from '@mui/material';
 import ArrowBackIcon  from '@mui/icons-material/ArrowBack';
 import OpenInNewIcon  from '@mui/icons-material/OpenInNew';
@@ -197,32 +197,43 @@ function InvoicePanel({ so, onBack }: { so: SalesOrder; onBack: () => void }) {
   );
 }
 
+const PER_PAGE = 20;
+
 // ── SO list panel ─────────────────────────────────────────────────────────────
 function SOListPanel({ onSelect }: { onSelect: (so: SalesOrder) => void }) {
   const [datePreset, setDatePreset] = useState('today');
+  const [page, setPage] = useState(1);
   const { dateStart, dateEnd } = resolveDates(datePreset);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['so-lookup', dateStart, dateEnd],
-    queryFn:  () => fetchSalesOrdersForLookup(dateStart, dateEnd),
+    queryKey: ['so-lookup', dateStart, dateEnd, page],
+    queryFn:  () => fetchSalesOrdersForLookup(dateStart, dateEnd, page, PER_PAGE),
     staleTime: 60_000,
   });
+
+  const totalPages = Math.ceil((data?.total ?? 0) / PER_PAGE);
+  const handleDateChange = (_: React.MouseEvent<HTMLElement>, v: string | null) => {
+    if (v) { setDatePreset(v); setPage(1); }
+  };
 
   return (
     <Box>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         <ToggleButtonGroup value={datePreset} exclusive size="small"
-          onChange={(_, v) => { if (v) setDatePreset(v); }}
+          onChange={handleDateChange}
           sx={{ '& .MuiToggleButton-root': { borderRadius: '8px !important', textTransform: 'none', fontWeight: 600, px: { xs: 1, sm: 1.5 }, fontSize: { xs: '0.72rem', sm: '0.8rem' } } }}>
           {DATE_PRESETS.map(({ value, label }) => (
             <ToggleButton key={value} value={value}>{label}</ToggleButton>
           ))}
         </ToggleButtonGroup>
-        <Tooltip title="Refresh">
-          <IconButton size="small" onClick={() => refetch()} sx={{ color: 'text.secondary' }}>
-            <RefreshIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Typography variant="caption" color="text.secondary">{data?.total ?? 0} orders</Typography>
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={() => refetch()} sx={{ color: 'text.secondary' }}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2, borderRadius: '10px' }}>{(error as Error).message}</Alert>}
@@ -265,6 +276,18 @@ function SOListPanel({ onSelect }: { onSelect: (so: SalesOrder) => void }) {
           </CardActionArea>
         </Card>
       ))}
+
+      {totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={(_, p) => setPage(p)}
+            size="small"
+            color="primary"
+          />
+        </Box>
+      )}
     </Box>
   );
 }
