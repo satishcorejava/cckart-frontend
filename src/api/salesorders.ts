@@ -1,5 +1,10 @@
 import client from './client';
-import type { ApiResponse, SalesOrder, PagedResult } from '../types';
+import type { ApiResponse, SalesOrder, SalesOrderDetail, PagedResult } from '../types';
+
+export const fetchSalesOrderDetail = async (id: string): Promise<SalesOrderDetail> => {
+  const res = await client.get<ApiResponse<SalesOrderDetail>>(`/salesorders/${id}`);
+  return res.data.data;
+};
 
 export const fetchSalesOrders = async (
   status?: string,

@@ -98,6 +98,24 @@ export interface InvoiceDetail extends Invoice {
   line_items: InvoiceLineItem[];
 }
 
+export interface SOLineItem {
+  line_item_id: string;
+  item_id: string;
+  name: string;
+  quantity: number;
+  rate: number;
+  unit: string;
+  total: number;
+  tax_name: string;
+  tax_percentage: number;
+}
+
+export interface SalesOrderDetail extends SalesOrder {
+  notes: string;
+  terms: string;
+  line_items: SOLineItem[];
+}
+
 export interface DashboardSummary {
   unpaidInvoiceCount: number;
   unpaidInvoiceTotal: number;

@@ -11,7 +11,8 @@ import StatusBadge    from '../components/StatusBadge';
 import PageLoader     from '../components/PageLoader';
 import ErrorAlert     from '../components/ErrorAlert';
 import TableToolbar   from '../components/TableToolbar';
-import SOFulfillDialog from '../components/SOFulfillDialog';
+import SOFulfillDialog  from '../components/SOFulfillDialog';
+import SODetailDrawer   from '../components/SODetailDrawer';
 import { useSalesOrders } from '../hooks/useSalesOrders';
 import type { SalesOrder } from '../types';
 
@@ -53,11 +54,11 @@ const TOGGLE_SX = {
 };
 
 // ── Mobile card ───────────────────────────────────────────────────────────────
-function SOCard({ so, onFulfill }: { so: SalesOrder; onFulfill: (so: SalesOrder) => void }) {
+function SOCard({ so, onView, onFulfill }: { so: SalesOrder; onView: (id: string) => void; onFulfill: (so: SalesOrder) => void }) {
   const canFulfill = FULFILLABLE.has(so.status);
   return (
     <Card variant="outlined" sx={{ borderRadius: '12px', mb: 1.5 }}>
-      <CardActionArea disableRipple={canFulfill} sx={{ p: 0, cursor: 'default' }}>
+      <CardActionArea onClick={() => onView(so.salesorder_id)} sx={{ p: 0 }}>
         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
             {/* Left */}
@@ -109,6 +110,7 @@ export default function SalesOrdersPage() {
   const [status,      setStatus]      = useState('');
   const [datePreset,  setDatePreset]  = useState('today');
   const [fulfilling,  setFulfilling]  = useState<SalesOrder | null>(null);
+  const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
 
   const { dateStart, dateEnd } = resolveDates(datePreset);
@@ -192,7 +194,7 @@ export default function SalesOrdersPage() {
                 </Box>
               ) : (
                 (data?.items ?? []).map((so) => (
-                  <SOCard key={so.salesorder_id} so={so} onFulfill={setFulfilling} />
+                  <SOCard key={so.salesorder_id} so={so} onView={setSelectedId} onFulfill={setFulfilling} />
                 ))
               )}
 
@@ -220,6 +222,7 @@ export default function SalesOrdersPage() {
                 onPaginationModelChange={setPaginationModel}
                 paginationMode="server"
                 rowCount={data?.total ?? 0}
+                onRowClick={(params) => setSelectedId(params.row.salesorder_id)}
                 disableRowSelectionOnClick
                 slots={{ toolbar: TableToolbar }}
                 slotProps={{ toolbar: { onRefresh: refetch } }}
@@ -227,6 +230,7 @@ export default function SalesOrdersPage() {
                 sx={{
                   border: 'none', height: '100%',
                   '& .MuiDataGrid-columnHeaders': { fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.05em', textTransform: 'uppercase' },
+                  '& .MuiDataGrid-row': { cursor: 'pointer' },
                   '& .MuiDataGrid-row:hover': { background: 'rgba(0,122,255,0.06)' },
                 }}
               />
@@ -236,6 +240,7 @@ export default function SalesOrdersPage() {
       )}
 
       <SOFulfillDialog salesOrder={fulfilling} onClose={() => setFulfilling(null)} />
+      <SODetailDrawer salesOrderId={selectedId} onClose={() => setSelectedId(null)} />
     </Box>
   );
 }
