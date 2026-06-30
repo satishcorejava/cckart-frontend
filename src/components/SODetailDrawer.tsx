@@ -17,8 +17,8 @@ import type { SalesOrder } from '../types';
 const fmt  = (n: number | undefined | null) => '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtQ = (n: number | undefined | null) => { const v = n ?? 0; return v % 1 === 0 ? String(v) : v.toFixed(2); };
 
-const FULFILLABLE     = new Set(['draft', 'confirmed', 'open']);
-const CAN_INVOICE     = new Set(['confirmed', 'open']);
+const FULFILLABLE = new Set(['draft', 'confirmed', 'open']);
+const CAN_INVOICE = new Set(['draft', 'confirmed', 'open']);
 
 interface Props {
   salesOrderId: string | null;
@@ -40,8 +40,9 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
     staleTime: 60_000,
   });
 
-  const canFulfill = so ? FULFILLABLE.has(so.status) : false;
-  const canInvoice = so ? CAN_INVOICE.has(so.status) && !(so.invoices?.length) : false;
+  const canFulfill    = so ? FULFILLABLE.has(so.status) : false;
+  const hasInvoice    = so ? (so.invoices ?? []).length > 0 : false;
+  const canInvoice    = so ? CAN_INVOICE.has(so.status) && !hasInvoice : false;
 
   const createInvoiceMut = useMutation({
     mutationFn: () => createInvoiceFromSO(salesOrderId!),
