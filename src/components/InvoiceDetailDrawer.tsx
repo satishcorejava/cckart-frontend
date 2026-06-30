@@ -9,9 +9,6 @@ import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
 import PhoneIcon        from '@mui/icons-material/Phone';
 import LocationOnIcon   from '@mui/icons-material/LocationOn';
-import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
-import ContentCopyIcon  from '@mui/icons-material/ContentCopy';
-import WhatsAppIcon     from '@mui/icons-material/WhatsApp';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import { fetchInvoiceDetail, markInvoiceAsSent, enableInvoicePayment, closeLinkedSalesOrders } from '../api/invoices';
 import StatusBadge from './StatusBadge';
@@ -61,16 +58,6 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
     onError: () => setToast('Failed to mark as sent'),
   });
 
-  const copyLink = (url: string) => {
-    navigator.clipboard.writeText(url).then(() => { setToast('Payment link copied!'); });
-  };
-
-  const shareWhatsApp = (inv: { invoice_number: string; balance: number; invoice_url: string }) => {
-    const text = encodeURIComponent(
-      `Hi, please find your invoice ${inv.invoice_number}.\nBalance due: ₹${inv.balance.toLocaleString('en-IN')}.\nPay here: ${inv.invoice_url}`
-    );
-    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
-  };
 
   const { data: inv, isLoading, error } = useQuery({
     queryKey: ['invoice', invoiceId],
