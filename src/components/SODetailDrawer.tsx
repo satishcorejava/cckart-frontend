@@ -9,9 +9,11 @@ import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
 import PaymentsIcon     from '@mui/icons-material/Payments';
 import ReceiptIcon      from '@mui/icons-material/Receipt';
 import CheckCircleIcon  from '@mui/icons-material/CheckCircle';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { fetchSalesOrderDetail, createInvoiceFromSO } from '../api/salesorders';
-import StatusBadge    from './StatusBadge';
-import SOFulfillDialog from './SOFulfillDialog';
+import StatusBadge        from './StatusBadge';
+import SOFulfillDialog    from './SOFulfillDialog';
+import InvoiceDetailDrawer from './InvoiceDetailDrawer';
 import type { SalesOrder } from '../types';
 
 const fmt  = (n: number | undefined | null) => '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -30,8 +32,9 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
   const isMobile    = useMediaQuery(theme.breakpoints.down('sm'));
   const queryClient = useQueryClient();
 
-  const [fulfilling,   setFulfilling]   = useState(false);
-  const [invoiceSnack, setInvoiceSnack] = useState<string | null>(null);
+  const [fulfilling,      setFulfilling]      = useState(false);
+  const [invoiceSnack,    setInvoiceSnack]    = useState<string | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
 
   const { data: so, isLoading, error } = useQuery({
     queryKey: ['salesorder', salesOrderId],
@@ -142,7 +145,16 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
                     <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Linked Invoices</Typography>
                     <Stack spacing={1}>
                       {so.invoices.map((inv) => (
-                        <Paper key={inv.invoice_id} variant="outlined" sx={{ px: 2, py: 1.2, borderRadius: '10px' }}>
+                        <Paper
+                          key={inv.invoice_id}
+                          variant="outlined"
+                          onClick={() => setSelectedInvoice(inv.invoice_id)}
+                          sx={{
+                            px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(0,122,255,0.04)' },
+                          }}
+                        >
                           <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Stack direction="row" spacing={1} alignItems="center">
                               <ReceiptIcon sx={{ fontSize: 16, color: 'primary.main' }} />
@@ -151,6 +163,7 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
                             <Stack direction="row" spacing={1} alignItems="center">
                               <Typography variant="body2" fontWeight={600}>{fmt(inv.total)}</Typography>
                               <StatusBadge status={inv.status} />
+                              <ChevronRightIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
                             </Stack>
                           </Stack>
                         </Paper>
@@ -303,6 +316,11 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
       <SOFulfillDialog
         salesOrder={fulfilling && so ? (so as unknown as SalesOrder) : null}
         onClose={() => setFulfilling(false)}
+      />
+
+      <InvoiceDetailDrawer
+        invoiceId={selectedInvoice}
+        onClose={() => setSelectedInvoice(null)}
       />
 
       <Snackbar
