@@ -296,7 +296,7 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
 
       <SOFulfillDialog
         salesOrder={fulfilling && so ? (so as unknown as SalesOrder) : null}
-        onClose={() => { setFulfilling(false); onClose(); }}
+        onClose={() => setFulfilling(false)}
       />
 
       <Snackbar

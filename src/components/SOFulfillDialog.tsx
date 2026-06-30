@@ -43,6 +43,8 @@ export default function SOFulfillDialog({ salesOrder, onClose }: Props) {
     onSuccess: (data) => {
       setResult(data);
       queryClient.invalidateQueries({ queryKey: ['salesorders'] });
+      queryClient.invalidateQueries({ queryKey: ['salesorder', salesOrder!.salesorder_id] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
     },
   });
 
