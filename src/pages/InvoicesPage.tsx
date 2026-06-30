@@ -30,6 +30,7 @@ const DATE_PRESETS = [
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'thismonth', label: 'This Month' },
   { value: 'lastmonth', label: 'Last Month' },
+  { value: 'custom',    label: 'Custom…' },
 ];
 
 const STATUS_OPTIONS = [
@@ -133,6 +134,8 @@ export default function InvoicesPage() {
 
   const [status,      setStatus]      = useState('unpaid');
   const [datePreset,  setDatePreset]  = useState('today');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd,   setCustomEnd]   = useState('');
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [payingInvoice,   setPayingInvoice]   = useState<Invoice | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
@@ -175,9 +178,11 @@ export default function InvoicesPage() {
     }
   };
 
-  const { dateStart, dateEnd } = resolveDates(datePreset);
+  const resolved = datePreset === 'custom'
+    ? { dateStart: customStart || undefined, dateEnd: customEnd || undefined }
+    : resolveDates(datePreset);
   const { data, isLoading, error, refetch } = useInvoices(
-    status || undefined, dateStart, dateEnd,
+    status || undefined, resolved.dateStart, resolved.dateEnd,
     searchDebounced || undefined,
     paginationModel.page + 1, paginationModel.pageSize,
   );
@@ -231,7 +236,7 @@ export default function InvoicesPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>From Zoho POS</Typography>
 
       {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5, alignItems: 'center' }}>
         <ToggleButtonGroup value={datePreset} exclusive onChange={handleDateChange} size="small" sx={TOGGLE_SX}>
           {DATE_PRESETS.map(({ value, label }) => (
             <ToggleButton key={value} value={value}>{label}</ToggleButton>
@@ -244,6 +249,25 @@ export default function InvoicesPage() {
           ))}
         </ToggleButtonGroup>
       </Box>
+
+      {datePreset === 'custom' && (
+        <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+          <TextField
+            size="small" type="date" label="From"
+            value={customStart}
+            onChange={(e) => { setCustomStart(e.target.value); reset(); }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+          />
+          <TextField
+            size="small" type="date" label="To"
+            value={customEnd}
+            onChange={(e) => { setCustomEnd(e.target.value); reset(); }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+          />
+        </Box>
+      )}
 
       {/* Search bar */}
       <TextField

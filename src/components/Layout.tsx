@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  AppBar, Avatar, Box, Drawer, IconButton, List, ListItem, ListItemButton,
+  AppBar, Avatar, Badge, Box, Drawer, IconButton, List, ListItem, ListItemButton,
   ListItemIcon, ListItemText, Toolbar, Tooltip, Typography,
   useTheme, useMediaQuery,
 } from '@mui/material';
@@ -16,7 +16,10 @@ import Brightness4Icon  from '@mui/icons-material/Brightness4';
 import Brightness7Icon  from '@mui/icons-material/Brightness7';
 import LogoutIcon       from '@mui/icons-material/Logout';
 import MenuIcon         from '@mui/icons-material/Menu';
+import SearchIcon       from '@mui/icons-material/Search';
 import { useAuth }      from '../context/AuthContext';
+import { useDashboard } from '../hooks/useDashboard';
+import CommandPalette   from './CommandPalette';
 
 const DRAWER_WIDTH = 220;
 
@@ -35,13 +38,24 @@ interface Props {
   onToggleTheme: () => void;
 }
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({ onNavigate, overdueCount, openSoCount }: {
+  onNavigate?: () => void;
+  overdueCount: number;
+  openSoCount: number;
+}) {
   const location = useLocation();
+
+  const badgeFor = (label: string) => {
+    if (label === 'Invoices')     return overdueCount;
+    if (label === 'Sales Orders') return openSoCount;
+    return 0;
+  };
 
   return (
     <List dense sx={{ px: 1 }}>
       {NAV.map(({ label, path, Icon }) => {
         const active = location.pathname === path;
+        const count  = badgeFor(label);
         return (
           <ListItem key={path} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
@@ -61,7 +75,9 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
               }}
             >
               <ListItemIcon sx={{ minWidth: 36 }}>
-                <Icon fontSize="small" />
+                <Badge badgeContent={count || undefined} color="error" max={99}>
+                  <Icon fontSize="small" />
+                </Badge>
               </ListItemIcon>
               <ListItemText
                 primary={label}
@@ -78,9 +94,24 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 export default function Layout({ children, onToggleTheme }: Props) {
   const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen,   setMobileOpen]   = useState(false);
+  const [paletteOpen,  setPaletteOpen]  = useState(false);
 
   const { user, logout } = useAuth();
+  const { data: dashboard } = useDashboard();
+  const overdueCount = dashboard?.overdueInvoiceCount ?? 0;
+  const openSoCount  = dashboard?.openSalesOrderCount ?? 0;
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const initials = user?.name
     ? user.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -101,7 +132,11 @@ export default function Layout({ children, onToggleTheme }: Props) {
           </Typography>
         </Box>
       )}
-      <NavList onNavigate={isMobile ? () => setMobileOpen(false) : undefined} />
+      <NavList
+        onNavigate={isMobile ? () => setMobileOpen(false) : undefined}
+        overdueCount={overdueCount}
+        openSoCount={openSoCount}
+      />
     </Box>
   );
 
@@ -147,6 +182,12 @@ export default function Layout({ children, onToggleTheme }: Props) {
           </Typography>
 
           <Box sx={{ flex: 1 }} />
+
+          <Tooltip title="Search (Ctrl+K)">
+            <IconButton onClick={() => setPaletteOpen(true)} sx={{ color: theme.palette.text.secondary }}>
+              <SearchIcon />
+            </IconButton>
+          </Tooltip>
 
           {user && (
             <Tooltip title={`${user.name} · ${user.email}`}>
@@ -225,6 +266,8 @@ export default function Layout({ children, onToggleTheme }: Props) {
       >
         {children}
       </Box>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </Box>
   );
 }
