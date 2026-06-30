@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import CloseIcon        from '@mui/icons-material/Close';
 import CheckCircleIcon  from '@mui/icons-material/CheckCircle';
+import OpenInNewIcon    from '@mui/icons-material/OpenInNew';
 import ContentCopyIcon  from '@mui/icons-material/ContentCopy';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { createUpiSession, fetchUpiPaymentStatus } from '../api/upiPayment';
@@ -31,25 +32,24 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
 
   const [sessionId,    setSessionId]    = useState<string | null>(null);
   const [qrImage,      setQrImage]      = useState<string | null>(null);
-  const [upiString,    setUpiString]    = useState<string | null>(null);
+  const [paymentLink,  setPaymentLink]  = useState<string | null>(null);
   const [loading,      setLoading]      = useState(false);
   const [createError,  setCreateError]  = useState<string | null>(null);
   const [copied,       setCopied]       = useState(false);
   const [secondsLeft,  setSecondsLeft]  = useState(SESSION_SECONDS);
   const [paidNotified, setPaidNotified] = useState(false);
 
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Start session when drawer opens ────────────────────────────────────────
+  // ── Start session when drawer opens ──────────────────────────────────────
   useEffect(() => {
     if (!open || !inv) return;
     let cancelled = false;
 
-    // Reset state
     setSessionId(null);
     setQrImage(null);
-    setUpiString(null);
+    setPaymentLink(null);
     setCreateError(null);
     setCopied(false);
     setSecondsLeft(SESSION_SECONDS);
@@ -60,25 +60,26 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
       invoice_id:     inv.invoice_id,
       invoice_number: inv.invoice_number,
       customer_id:    inv.customer_id,
+      customer_name:  inv.customer_name,
       amount:         inv.balance,
     })
       .then((data) => {
         if (cancelled) return;
         setSessionId(data.session_id);
         setQrImage(data.qr_image);
-        setUpiString(data.upi_string);
+        setPaymentLink(data.payment_link);
         setSecondsLeft(data.expires_in);
       })
       .catch((err) => {
         if (cancelled) return;
-        setCreateError(err?.response?.data?.message ?? err?.message ?? 'Failed to create session');
+        setCreateError(err?.response?.data?.message ?? err?.message ?? 'Failed to create payment link');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, [open, inv?.invoice_id]);
 
-  // ── Countdown timer ────────────────────────────────────────────────────────
+  // ── Countdown timer ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!open || !sessionId) return;
     countdownRef.current = setInterval(() => {
@@ -87,7 +88,7 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
     return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
   }, [open, sessionId]);
 
-  // ── Poll payment status ────────────────────────────────────────────────────
+  // ── Poll payment status ───────────────────────────────────────────────────
   const { data: statusData } = useQuery({
     queryKey: ['upi-status', sessionId],
     queryFn:  () => fetchUpiPaymentStatus(sessionId!),
@@ -101,12 +102,12 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
     staleTime: 0,
   });
 
-  const status     = statusData?.status ?? 'initiated';
+  const status      = statusData?.status ?? 'initiated';
   const isSucceeded = status === 'succeeded';
   const isFailed    = status === 'failed' || status === 'canceled';
   const isExpired   = secondsLeft <= 0 && !isSucceeded;
 
-  // ── Handle success ─────────────────────────────────────────────────────────
+  // ── Handle success ────────────────────────────────────────────────────────
   const handlePaid = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['invoice', inv?.invoice_id] });
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -124,16 +125,16 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
     return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); };
   }, [isSucceeded, paidNotified]);
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-  const copyUpi = () => {
-    if (!upiString) return;
-    navigator.clipboard.writeText(upiString).then(() => {
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const copyLink = () => {
+    if (!paymentLink) return;
+    navigator.clipboard.writeText(paymentLink).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   };
 
-  const mmSs = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
+  const mmSs     = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
   const progress = (secondsLeft / SESSION_SECONDS) * 100;
 
   return (
@@ -158,7 +159,7 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h6" fontWeight={800}>Pay via UPI</Typography>
+            <Typography variant="h6" fontWeight={800}>Pay via UPI / Card</Typography>
             <Typography variant="body2" color="text.secondary">{inv?.customer_name}</Typography>
           </Box>
           <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary', mt: -0.5 }}>
@@ -168,27 +169,27 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
 
         <Divider sx={{ mb: 2.5 }} />
 
-        {/* ── Loading state ── */}
+        {/* ── Loading ── */}
         {loading && (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <CircularProgress size={48} />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              Generating UPI QR code…
+              Generating payment link…
             </Typography>
           </Box>
         )}
 
-        {/* ── Error state ── */}
+        {/* ── Error ── */}
         {!loading && createError && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <ErrorOutlineIcon sx={{ fontSize: 56, color: 'error.main', mb: 1.5 }} />
-            <Typography variant="h6" fontWeight={700} color="error">Session Error</Typography>
+            <Typography variant="h6" fontWeight={700} color="error">Failed to create link</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{createError}</Typography>
             <Button variant="outlined" sx={{ mt: 3 }} onClick={onClose}>Close</Button>
           </Box>
         )}
 
-        {/* ── Success state ── */}
+        {/* ── Success ── */}
         {!loading && !createError && isSucceeded && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <CheckCircleIcon sx={{ fontSize: 80, color: '#34C759', mb: 2 }} />
@@ -210,31 +211,31 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
           </Box>
         )}
 
-        {/* ── Failed / canceled state ── */}
+        {/* ── Failed / canceled ── */}
         {!loading && !createError && isFailed && !isSucceeded && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <ErrorOutlineIcon sx={{ fontSize: 72, color: 'error.main', mb: 2 }} />
             <Typography variant="h6" fontWeight={700}>Payment {status}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              The UPI transaction was not completed.
+              The payment was not completed.
             </Typography>
             <Button variant="outlined" sx={{ mt: 3 }} onClick={onClose}>Close</Button>
           </Box>
         )}
 
-        {/* ── Expired state ── */}
+        {/* ── Expired ── */}
         {!loading && !createError && isExpired && !isSucceeded && !isFailed && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <ErrorOutlineIcon sx={{ fontSize: 72, color: 'warning.main', mb: 2 }} />
-            <Typography variant="h6" fontWeight={700}>Session Expired</Typography>
+            <Typography variant="h6" fontWeight={700}>Link Expired</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              The QR code has expired. Close and re-open to generate a new one.
+              The payment link has expired. Close and re-open to generate a new one.
             </Typography>
             <Button variant="outlined" sx={{ mt: 3 }} onClick={onClose}>Close</Button>
           </Box>
         )}
 
-        {/* ── Active QR state ── */}
+        {/* ── Active QR + Link ── */}
         {!loading && !createError && !isSucceeded && !isFailed && !isExpired && qrImage && (
           <>
             {/* Amount row */}
@@ -251,25 +252,56 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
               </Box>
             </Stack>
 
-            {/* QR image from backend (base64 PNG) */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
+            {/* QR code — scans to Zoho hosted payment page */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.5 }}>
               <Box sx={{
                 p: 2, borderRadius: '16px', border: '2px solid',
                 borderColor: 'primary.light', background: '#fff',
                 boxShadow: '0 4px 20px rgba(0,122,255,0.12)',
               }}>
-                <img src={qrImage} alt="UPI QR Code" width={220} height={220} style={{ display: 'block' }} />
+                <img src={qrImage} alt="Payment QR Code" width={220} height={220} style={{ display: 'block' }} />
               </Box>
             </Box>
 
-            <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 1 }}>
-              Scan with any UPI app — PhonePe, GPay, Paytm, BHIM
+            <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 2.5 }}>
+              Scan to open the payment page — UPI, Card, Netbanking
             </Typography>
 
+            {/* Open link button */}
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={<OpenInNewIcon />}
+              href={paymentLink ?? '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                py: 1.4, borderRadius: '12px', fontWeight: 700, mb: 1.5,
+                background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
+              }}
+            >
+              Open Payment Link
+            </Button>
+
+            {/* Copy link */}
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<ContentCopyIcon />}
+              onClick={copyLink}
+              sx={{
+                py: 1.2, borderRadius: '12px', fontWeight: 700, mb: 3,
+                borderColor: copied ? '#34C759' : undefined,
+                color:       copied ? '#34C759' : undefined,
+              }}
+            >
+              {copied ? 'Copied!' : 'Copy Payment Link'}
+            </Button>
+
             {/* Countdown */}
-            <Box sx={{ mb: 3 }}>
+            <Box sx={{ mb: 2.5 }}>
               <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                <Typography variant="caption" color="text.secondary">Session expires in</Typography>
+                <Typography variant="caption" color="text.secondary">Link expires in</Typography>
                 <Typography variant="caption" fontWeight={700}
                   color={secondsLeft < 60 ? 'error' : 'text.primary'}>{mmSs}</Typography>
               </Stack>
@@ -286,35 +318,12 @@ export default function UpiPaymentSheet({ open, inv, onClose, onPaid }: Props) {
             </Box>
 
             {/* Polling indicator */}
-            <Stack direction="row" justifyContent="center" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+            <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
               <CircularProgress size={14} thickness={5} sx={{ color: '#007AFF' }} />
               <Typography variant="caption" color="text.secondary">
                 Waiting for payment confirmation…
               </Typography>
             </Stack>
-
-            <Divider sx={{ mb: 2 }}>
-              <Chip label="or" size="small" sx={{ fontSize: '0.72rem' }} />
-            </Divider>
-
-            {/* Copy UPI string */}
-            <Button
-              variant="outlined"
-              fullWidth
-              startIcon={<ContentCopyIcon />}
-              onClick={copyUpi}
-              sx={{
-                py: 1.2, borderRadius: '12px', fontWeight: 700,
-                borderColor: copied ? '#34C759' : undefined,
-                color:       copied ? '#34C759' : undefined,
-              }}
-            >
-              {copied ? 'Copied!' : 'Copy UPI String'}
-            </Button>
-
-            <Typography variant="caption" color="text.disabled" textAlign="center" display="block" sx={{ mt: 2 }}>
-              Page auto-updates every 5 seconds when payment is received.
-            </Typography>
           </>
         )}
       </Box>

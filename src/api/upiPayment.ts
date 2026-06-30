@@ -2,10 +2,10 @@ import client from './client';
 import type { ApiResponse } from '../types';
 
 export interface UpiSessionResponse {
-  session_id:  string;
-  qr_image:    string;   // data:image/png;base64,...
-  upi_string:  string;
-  expires_in:  number;   // seconds
+  session_id:   string;
+  qr_image:     string;   // data:image/png;base64,... (QR of the payment link)
+  payment_link: string;   // hosted Zoho payment page URL
+  expires_in:   number;   // seconds
 }
 
 export interface UpiPaymentStatus {
@@ -17,10 +17,12 @@ export interface UpiPaymentStatus {
 }
 
 export const createUpiSession = async (params: {
-  invoice_id:     string;
-  invoice_number: string;
-  customer_id:    string;
-  amount:         number;
+  invoice_id:      string;
+  invoice_number:  string;
+  customer_id:     string;
+  customer_name?:  string;
+  customer_mobile?: string;
+  amount:          number;
 }): Promise<UpiSessionResponse> => {
   const res = await client.post<ApiResponse<UpiSessionResponse>>('/create-payment-session', params);
   return res.data.data;
