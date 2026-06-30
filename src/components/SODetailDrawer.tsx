@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Drawer, Box, Typography, Divider, Chip, Stack, Table, TableBody,
@@ -37,12 +37,12 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
     queryKey: ['salesorder', salesOrderId],
     queryFn:  () => fetchSalesOrderDetail(salesOrderId!),
     enabled:  !!salesOrderId,
-    staleTime: 60_000,
+    staleTime: 0,
   });
 
-  const canFulfill    = so ? FULFILLABLE.has(so.status) : false;
-  const hasInvoice    = so ? (so.invoices ?? []).length > 0 : false;
-  const canInvoice    = so ? CAN_INVOICE.has(so.status) && !hasInvoice : false;
+  const canFulfill = so ? FULFILLABLE.has(so.status) : false;
+  const hasInvoice = (so?.invoices ?? []).length > 0;
+  const canInvoice = so ? CAN_INVOICE.has(so.status) && !hasInvoice : false;
 
   const createInvoiceMut = useMutation({
     mutationFn: () => createInvoiceFromSO(salesOrderId!),
@@ -52,6 +52,11 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
       setInvoiceSnack(`Invoice ${data.invoice_number} created successfully`);
     },
   });
+
+  // Reset mutation state when switching to a different SO
+  useEffect(() => {
+    createInvoiceMut.reset();
+  }, [salesOrderId]);
 
   return (
     <>
