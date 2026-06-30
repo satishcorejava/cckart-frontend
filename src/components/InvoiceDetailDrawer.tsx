@@ -244,26 +244,6 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
               </Stack>
             </Box>
 
-            {/* Notes / Terms */}
-            {(inv.notes || inv.terms) && (
-              <>
-                <Divider />
-                <Box sx={{ display: 'grid', gridTemplateColumns: inv.notes && inv.terms ? '1fr 1fr' : '1fr', gap: 2 }}>
-                  {inv.notes && (
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 0.5 }}>Notes</Typography>
-                      <Typography variant="body2">{inv.notes}</Typography>
-                    </Box>
-                  )}
-                  {inv.terms && (
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 0.5 }}>Terms</Typography>
-                      <Typography variant="body2">{inv.terms}</Typography>
-                    </Box>
-                  )}
-                </Box>
-              </>
-            )}
           </Stack>
         )}
       </Box>
