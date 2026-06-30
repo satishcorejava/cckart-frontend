@@ -110,10 +110,19 @@ export interface SOLineItem {
   tax_percentage: number;
 }
 
+export interface LinkedInvoice {
+  invoice_id:     string;
+  invoice_number: string;
+  status:         string;
+  total:          number;
+  date:           string;
+}
+
 export interface SalesOrderDetail extends SalesOrder {
-  notes: string;
-  terms: string;
+  notes:      string;
+  terms:      string;
   line_items: SOLineItem[];
+  invoices:   LinkedInvoice[];
 }
 
 export interface DashboardSummary {

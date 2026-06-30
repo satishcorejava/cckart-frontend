@@ -1,21 +1,24 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Drawer, Box, Typography, Divider, Chip, Stack, Table, TableBody,
   TableCell, TableHead, TableRow, Paper, IconButton, Skeleton, Alert,
-  Button, useTheme, useMediaQuery,
+  Button, useTheme, useMediaQuery, Snackbar,
 } from '@mui/material';
-import ArrowBackIcon  from '@mui/icons-material/ArrowBack';
-import PaymentsIcon   from '@mui/icons-material/Payments';
-import { fetchSalesOrderDetail } from '../api/salesorders';
+import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
+import PaymentsIcon     from '@mui/icons-material/Payments';
+import ReceiptIcon      from '@mui/icons-material/Receipt';
+import CheckCircleIcon  from '@mui/icons-material/CheckCircle';
+import { fetchSalesOrderDetail, createInvoiceFromSO } from '../api/salesorders';
 import StatusBadge    from './StatusBadge';
 import SOFulfillDialog from './SOFulfillDialog';
-import { useState } from 'react';
 import type { SalesOrder } from '../types';
 
 const fmt  = (n: number | undefined | null) => '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtQ = (n: number | undefined | null) => { const v = n ?? 0; return v % 1 === 0 ? String(v) : v.toFixed(2); };
 
-const FULFILLABLE = new Set(['draft', 'confirmed', 'open']);
+const FULFILLABLE     = new Set(['draft', 'confirmed', 'open']);
+const CAN_INVOICE     = new Set(['confirmed', 'open']);
 
 interface Props {
   salesOrderId: string | null;
@@ -23,9 +26,12 @@ interface Props {
 }
 
 export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
-  const theme    = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [fulfilling, setFulfilling] = useState(false);
+  const theme       = useTheme();
+  const isMobile    = useMediaQuery(theme.breakpoints.down('sm'));
+  const queryClient = useQueryClient();
+
+  const [fulfilling,   setFulfilling]   = useState(false);
+  const [invoiceSnack, setInvoiceSnack] = useState<string | null>(null);
 
   const { data: so, isLoading, error } = useQuery({
     queryKey: ['salesorder', salesOrderId],
@@ -35,6 +41,16 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
   });
 
   const canFulfill = so ? FULFILLABLE.has(so.status) : false;
+  const canInvoice = so ? CAN_INVOICE.has(so.status) && !(so.invoices?.length) : false;
+
+  const createInvoiceMut = useMutation({
+    mutationFn: () => createInvoiceFromSO(salesOrderId!),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['salesorder', salesOrderId] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      setInvoiceSnack(`Invoice ${data.invoice_number} created successfully`);
+    },
+  });
 
   return (
     <>
@@ -83,6 +99,12 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
             </Alert>
           )}
 
+          {createInvoiceMut.isError && (
+            <Alert severity="error" sx={{ borderRadius: '10px', mb: 2 }}>
+              {(createInvoiceMut.error as Error).message}
+            </Alert>
+          )}
+
           {isLoading && (
             <Stack spacing={1.5}>
               {[...Array(6)].map((_, i) => <Skeleton key={i} height={32} />)}
@@ -105,6 +127,32 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
                   </Box>
                 ))}
               </Box>
+
+              {/* Linked invoices */}
+              {so.invoices && so.invoices.length > 0 && (
+                <>
+                  <Divider />
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Linked Invoices</Typography>
+                    <Stack spacing={1}>
+                      {so.invoices.map((inv) => (
+                        <Paper key={inv.invoice_id} variant="outlined" sx={{ px: 2, py: 1.2, borderRadius: '10px' }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <ReceiptIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                              <Typography variant="body2" fontWeight={700}>{inv.invoice_number}</Typography>
+                            </Stack>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Typography variant="body2" fontWeight={600}>{fmt(inv.total)}</Typography>
+                              <StatusBadge status={inv.status} />
+                            </Stack>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </Box>
+                </>
+              )}
 
               <Divider />
 
@@ -188,26 +236,60 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
           )}
         </Box>
 
-        {/* Sticky footer — only for fulfillable orders */}
-        {!isLoading && so && canFulfill && (
+        {/* Sticky footer */}
+        {!isLoading && so && (canFulfill || canInvoice) && (
           <Box sx={{
             px: 3, py: 2,
             borderTop: `1px solid ${theme.palette.divider}`,
             background: theme.palette.background.paper,
           }}>
-            <Button
-              variant="contained"
-              fullWidth
-              startIcon={<PaymentsIcon />}
-              onClick={() => setFulfilling(true)}
-              sx={{
-                py: 1.2, borderRadius: '10px', fontWeight: 700,
-                background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
-                '&:hover': { background: 'linear-gradient(135deg,#0062CC,#1A9ADB)' },
-              }}
-            >
-              Record Payment &amp; Fulfill
-            </Button>
+            <Stack spacing={1.5}>
+              {/* Create Invoice button — shown when confirmed and no invoice yet */}
+              {canInvoice && (
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={createInvoiceMut.isSuccess
+                    ? <CheckCircleIcon />
+                    : <ReceiptIcon />}
+                  onClick={() => createInvoiceMut.mutate()}
+                  disabled={createInvoiceMut.isPending || createInvoiceMut.isSuccess}
+                  sx={{
+                    py: 1.2, borderRadius: '10px', fontWeight: 700,
+                    background: createInvoiceMut.isSuccess
+                      ? '#34C759'
+                      : 'linear-gradient(135deg,#34C759,#30B94E)',
+                    '&:hover': { background: 'linear-gradient(135deg,#28A745,#239B3F)' },
+                    '&.Mui-disabled': { opacity: 0.7, color: '#fff' },
+                  }}
+                >
+                  {createInvoiceMut.isPending
+                    ? 'Creating Invoice…'
+                    : createInvoiceMut.isSuccess
+                      ? 'Invoice Created'
+                      : 'Create Invoice'}
+                </Button>
+              )}
+
+              {/* Record Payment & Fulfill */}
+              {canFulfill && (
+                <Button
+                  variant={canInvoice ? 'outlined' : 'contained'}
+                  fullWidth
+                  startIcon={<PaymentsIcon />}
+                  onClick={() => setFulfilling(true)}
+                  sx={{
+                    py: 1.2, borderRadius: '10px', fontWeight: 700,
+                    ...(canInvoice ? {} : {
+                      background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
+                      '&:hover': { background: 'linear-gradient(135deg,#0062CC,#1A9ADB)' },
+                    }),
+                  }}
+                >
+                  Record Payment &amp; Fulfill
+                </Button>
+              )}
+            </Stack>
           </Box>
         )}
       </Drawer>
@@ -216,6 +298,22 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
         salesOrder={fulfilling && so ? (so as unknown as SalesOrder) : null}
         onClose={() => { setFulfilling(false); onClose(); }}
       />
+
+      <Snackbar
+        open={!!invoiceSnack}
+        autoHideDuration={4000}
+        onClose={() => setInvoiceSnack(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity="success"
+          icon={<CheckCircleIcon />}
+          onClose={() => setInvoiceSnack(null)}
+          sx={{ borderRadius: '12px', fontWeight: 600 }}
+        >
+          {invoiceSnack}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

@@ -38,6 +38,13 @@ export interface FulfillmentResult {
   message: string;
 }
 
+export const createInvoiceFromSO = async (salesOrderId: string): Promise<{ invoice_id: string; invoice_number: string }> => {
+  const res = await client.post<ApiResponse<{ invoice_id: string; invoice_number: string }>>(
+    `/salesorders/${salesOrderId}/invoice`,
+  );
+  return res.data.data;
+};
+
 export const fulfillSalesOrder = async (
   id: string,
   request: FulfillRequest,
