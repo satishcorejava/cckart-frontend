@@ -386,59 +386,6 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
                 </Button>
               )}
 
-              {/* Generated / existing payment URL display */}
-              {(paymentUrl || inv.invoice_url) && (() => {
-                const activeUrl = paymentUrl || inv.invoice_url!;
-                return (
-                  <Box sx={{ p: 1.5, borderRadius: '10px', border: '1px solid',
-                    borderColor: 'success.light', background: 'rgba(52,199,89,0.06)' }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                      <Typography variant="caption" fontWeight={700} color="success.main">
-                        ✓ Payment Link Ready
-                      </Typography>
-                      <Button
-                        size="small"
-                        endIcon={<OpenInNewIcon sx={{ fontSize: 13 }} />}
-                        onClick={() => setWatcherOpen(true)}
-                        sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 700,
-                          color: '#007AFF', p: '2px 8px' }}
-                      >
-                        Open
-                      </Button>
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary"
-                      sx={{ wordBreak: 'break-all', display: 'block', mb: 1 }}>
-                      {activeUrl}
-                    </Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
-                        onClick={() => copyLink(activeUrl)}
-                        sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.78rem' }}
-                      >
-                        Copy Link
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<WhatsAppIcon sx={{ fontSize: 14, color: '#25D366' }} />}
-                        onClick={() => shareWhatsApp({
-                          invoice_number: inv.invoice_number,
-                          balance: inv.balance,
-                          invoice_url: activeUrl,
-                        })}
-                        sx={{ flex: 1, borderRadius: '8px', textTransform: 'none', fontSize: '0.78rem',
-                          borderColor: '#25D366', color: '#25D366',
-                          '&:hover': { borderColor: '#128C7E', background: 'rgba(37,211,102,0.06)' } }}
-                      >
-                        WhatsApp
-                      </Button>
-                    </Stack>
-                  </Box>
-                );
-              })()}
 
               {/* Re-generate if already has URL but want to refresh */}
               {inv.invoice_url && (
