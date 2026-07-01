@@ -23,9 +23,10 @@ const fmtQ = (n: number | undefined | null) => { const v = n ?? 0; return v % 1 
 interface Props {
   invoiceId: string | null;
   onClose: () => void;
+  salesOrderId?: string | null;
 }
 
-export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
+export default function InvoiceDetailDrawer({ invoiceId, onClose, salesOrderId }: Props) {
   const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -387,6 +388,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
           queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
           queryClient.invalidateQueries({ queryKey: ['invoices'] });
           queryClient.invalidateQueries({ queryKey: ['salesorders'] });
+          if (salesOrderId) queryClient.invalidateQueries({ queryKey: ['salesorder', salesOrderId] });
           if (invoiceId) closeLinkedSalesOrders(invoiceId).catch(() => {});
         }}
       />
@@ -400,6 +402,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose }: Props) {
           queryClient.invalidateQueries({ queryKey: ['invoice', invoiceId] });
           queryClient.invalidateQueries({ queryKey: ['invoices'] });
           queryClient.invalidateQueries({ queryKey: ['salesorders'] });
+          if (salesOrderId) queryClient.invalidateQueries({ queryKey: ['salesorder', salesOrderId] });
           if (invoiceId) closeLinkedSalesOrders(invoiceId).catch(() => {});
         }}
       />

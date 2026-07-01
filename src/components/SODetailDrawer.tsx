@@ -295,6 +295,7 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
       <InvoiceDetailDrawer
         invoiceId={selectedInvoice}
         onClose={() => setSelectedInvoice(null)}
+        salesOrderId={salesOrderId}
       />
 
       <Snackbar
