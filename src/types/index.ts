@@ -96,6 +96,7 @@ export interface InvoiceDetail extends Invoice {
   invoice_url: string;
   billing_address: BillingAddress;
   line_items: InvoiceLineItem[];
+  is_inclusive_tax: boolean;
 }
 
 export interface SOLineItem {
