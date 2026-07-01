@@ -218,7 +218,11 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose, salesOrderId }
                         {!isMobile && (
                           <TableCell align="right">
                             <Typography variant="body2" color="text.secondary">
-                              {li.tax_percentage > 0 ? fmt(li.amount * li.tax_percentage / 100) : '—'}
+                              {li.tax_percentage > 0
+                                ? fmt(inv.is_inclusive_tax
+                                    ? li.amount - li.amount / (1 + li.tax_percentage / 100)
+                                    : li.amount * li.tax_percentage / 100)
+                                : '—'}
                             </Typography>
                           </TableCell>
                         )}
@@ -234,8 +238,13 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose, salesOrderId }
 
             {/* Totals */}
             {(() => {
-              const subTotal = (inv.line_items ?? []).reduce((s, li) => s + li.amount, 0);
-              const taxTotal = (inv.line_items ?? []).reduce((s, li) => s + li.amount * li.tax_percentage / 100, 0);
+              const inclusive = inv.is_inclusive_tax;
+              const subTotal = (inv.line_items ?? []).reduce((s, li) =>
+                s + (inclusive ? li.amount / (1 + li.tax_percentage / 100) : li.amount), 0);
+              const taxTotal = (inv.line_items ?? []).reduce((s, li) =>
+                s + (inclusive
+                  ? li.amount - li.amount / (1 + li.tax_percentage / 100)
+                  : li.amount * li.tax_percentage / 100), 0);
               return (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Stack spacing={0.75} sx={{ minWidth: 220 }}>
