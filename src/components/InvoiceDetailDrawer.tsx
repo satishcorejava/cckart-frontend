@@ -187,6 +187,7 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose, salesOrderId }
                       {!isMobile && <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Qty</TableCell>}
                       {!isMobile && <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Rate</TableCell>}
                       {!isMobile && <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Tax</TableCell>}
+                      {!isMobile && <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Tax Amt (₹)</TableCell>}
                       <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>Amount (₹)</TableCell>
                     </TableRow>
                   </TableHead>
@@ -214,6 +215,13 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose, salesOrderId }
                               : <Typography variant="body2" color="text.disabled">—</Typography>}
                           </TableCell>
                         )}
+                        {!isMobile && (
+                          <TableCell align="right">
+                            <Typography variant="body2" color="text.secondary">
+                              {li.tax_percentage > 0 ? fmt(li.amount * li.tax_percentage / 100) : '—'}
+                            </Typography>
+                          </TableCell>
+                        )}
                         <TableCell align="right">
                           <Typography variant="body2" fontWeight={600}>{fmt(li.amount)}</Typography>
                         </TableCell>
@@ -225,25 +233,37 @@ export default function InvoiceDetailDrawer({ invoiceId, onClose, salesOrderId }
             </Box>
 
             {/* Totals */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Stack spacing={0.75} sx={{ minWidth: 220 }}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">Sub Total</Typography>
-                  <Typography variant="body2">{fmt(inv.total - (inv.total - inv.balance > 0 ? 0 : 0))}</Typography>
-                </Stack>
-                <Divider />
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" fontWeight={700}>Total</Typography>
-                  <Typography variant="body2" fontWeight={700}>{fmt(inv.total ?? 0)}</Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">Balance Due</Typography>
-                  <Typography variant="body2" fontWeight={700} color={(inv.balance ?? 0) > 0 ? 'error.main' : 'success.main'}>
-                    {fmt(inv.balance ?? 0)}
-                  </Typography>
-                </Stack>
-              </Stack>
-            </Box>
+            {(() => {
+              const subTotal = (inv.line_items ?? []).reduce((s, li) => s + li.amount, 0);
+              const taxTotal = (inv.line_items ?? []).reduce((s, li) => s + li.amount * li.tax_percentage / 100, 0);
+              return (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Stack spacing={0.75} sx={{ minWidth: 220 }}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Sub Total</Typography>
+                      <Typography variant="body2">{fmt(subTotal)}</Typography>
+                    </Stack>
+                    {taxTotal > 0 && (
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">Tax</Typography>
+                        <Typography variant="body2">{fmt(taxTotal)}</Typography>
+                      </Stack>
+                    )}
+                    <Divider />
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2" fontWeight={700}>Total</Typography>
+                      <Typography variant="body2" fontWeight={700}>{fmt(inv.total ?? 0)}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Balance Due</Typography>
+                      <Typography variant="body2" fontWeight={700} color={(inv.balance ?? 0) > 0 ? 'error.main' : 'success.main'}>
+                        {fmt(inv.balance ?? 0)}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                </Box>
+              );
+            })()}
 
           </Stack>
         )}
