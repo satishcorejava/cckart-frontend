@@ -35,6 +35,8 @@ export interface SalesOrder {
   bcy_total: number;
   currency_code: string;
   reference_number: string;
+  invoiced_status: string;
+  paid_status: string;
 }
 
 export interface Contact {
