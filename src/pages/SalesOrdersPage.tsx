@@ -51,10 +51,17 @@ const TOGGLE_SX = {
   },
 };
 
+function invoiceStatusChip(so: SalesOrder): { label: string; color: string } {
+  const paid = so.paid_status ?? '';
+  const inv  = so.invoiced_status ?? '';
+  if (paid === 'paid') return { label: 'Paid', color: '#34C759' };
+  if (inv === 'invoiced' || inv === 'partially_invoiced') return { label: 'Invoiced', color: '#FF9500' };
+  return { label: 'To be Invoiced', color: '#007AFF' };
+}
+
 // ── Mobile card ───────────────────────────────────────────────────────────────
 function SOCard({ so, onView }: { so: SalesOrder; onView: (id: string) => void }) {
-  const paidStatus: string = (so as any).paid_status ?? '';
-  const paidColor = paidStatus === 'paid' ? '#34C759' : paidStatus === 'partially_paid' ? '#FF9500' : '#8E8E93';
+  const chip = invoiceStatusChip(so);
   return (
     <Card variant="outlined" sx={{ borderRadius: '12px', mb: 1.5 }}>
       <CardActionArea onClick={() => onView(so.salesorder_id)} sx={{ p: 0 }}>
@@ -78,14 +85,16 @@ function SOCard({ so, onView }: { so: SalesOrder; onView: (id: string) => void }
             {/* Right */}
             <Stack alignItems="flex-end" spacing={0.5} sx={{ ml: 1, flexShrink: 0 }}>
               <Typography variant="body1" fontWeight={800}>{fmt(so.total)}</Typography>
-              {paidStatus && (
-                <Chip
-                  label={paidStatus.replace('_', ' ')}
-                  size="small"
-                  sx={{ height: 18, fontSize: '0.62rem', fontWeight: 700, textTransform: 'capitalize',
-                        bgcolor: paidColor + '22', color: paidColor, border: `1px solid ${paidColor}44` }}
-                />
-              )}
+              <Chip
+                label={chip.label}
+                size="small"
+                sx={{
+                  height: 18, fontSize: '0.62rem', fontWeight: 700,
+                  bgcolor: chip.color + '22',
+                  color: chip.color,
+                  border: `1px solid ${chip.color}44`,
+                }}
+              />
             </Stack>
           </Stack>
         </CardContent>
