@@ -131,41 +131,6 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
                 ))}
               </Box>
 
-              {/* Linked invoices */}
-              {so.invoices && so.invoices.length > 0 && (
-                <>
-                  <Divider />
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Linked Invoices</Typography>
-                    <Stack spacing={1}>
-                      {so.invoices.map((inv) => (
-                        <Paper
-                          key={inv.invoice_id}
-                          variant="outlined"
-                          onClick={() => setSelectedInvoice(inv.invoice_id)}
-                          sx={{
-                            px: 2, py: 1.2, borderRadius: '10px', cursor: 'pointer',
-                            transition: 'all 0.15s',
-                            '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(0,122,255,0.04)' },
-                          }}
-                        >
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <ReceiptIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                              <Typography variant="body2" fontWeight={700}>{inv.invoice_number}</Typography>
-                            </Stack>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <Typography variant="body2" fontWeight={600}>{fmt(inv.total)}</Typography>
-                              <StatusBadge status={inv.status} />
-                              <ChevronRightIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
-                            </Stack>
-                          </Stack>
-                        </Paper>
-                      ))}
-                    </Stack>
-                  </Box>
-                </>
-              )}
 
               <Divider />
 
@@ -249,34 +214,80 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
           )}
         </Box>
 
-        {/* Sticky footer — Create Invoice only */}
-        {!isLoading && so && canInvoice && (
+        {/* Sticky footer — Create Invoice + Linked Invoices */}
+        {!isLoading && so && (canInvoice || (so.invoices && so.invoices.length > 0)) && (
           <Box sx={{
             px: 3, py: 2,
             borderTop: `1px solid ${theme.palette.divider}`,
             background: theme.palette.background.paper,
           }}>
-            <Button
-              variant="contained"
-              fullWidth
-              startIcon={createInvoiceMut.isSuccess ? <CheckCircleIcon /> : <ReceiptIcon />}
-              onClick={() => createInvoiceMut.mutate()}
-              disabled={createInvoiceMut.isPending || createInvoiceMut.isSuccess}
-              sx={{
-                py: 1.2, borderRadius: '10px', fontWeight: 700,
-                background: createInvoiceMut.isSuccess
-                  ? '#34C759'
-                  : 'linear-gradient(135deg,#34C759,#30B94E)',
-                '&:hover': { background: 'linear-gradient(135deg,#28A745,#239B3F)' },
-                '&.Mui-disabled': { opacity: 0.7, color: '#fff' },
-              }}
-            >
-              {createInvoiceMut.isPending
-                ? 'Creating Invoice…'
-                : createInvoiceMut.isSuccess
-                  ? 'Invoice Created'
-                  : 'Create Invoice'}
-            </Button>
+            <Stack spacing={1.5}>
+              {canInvoice && (
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={createInvoiceMut.isSuccess ? <CheckCircleIcon /> : <ReceiptIcon />}
+                  onClick={() => createInvoiceMut.mutate()}
+                  disabled={createInvoiceMut.isPending || createInvoiceMut.isSuccess}
+                  sx={{
+                    py: 1.2, borderRadius: '10px', fontWeight: 700,
+                    background: createInvoiceMut.isSuccess
+                      ? '#34C759'
+                      : 'linear-gradient(135deg,#34C759,#30B94E)',
+                    '&:hover': { background: 'linear-gradient(135deg,#28A745,#239B3F)' },
+                    '&.Mui-disabled': { opacity: 0.7, color: '#fff' },
+                  }}
+                >
+                  {createInvoiceMut.isPending
+                    ? 'Creating Invoice…'
+                    : createInvoiceMut.isSuccess
+                      ? 'Invoice Created'
+                      : 'Create Invoice'}
+                </Button>
+              )}
+
+              {so.invoices && so.invoices.length > 0 && (
+                <Stack spacing={1}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Linked Invoices
+                  </Typography>
+                  {so.invoices.map((inv) => (
+                    <Box
+                      key={inv.invoice_id}
+                      onClick={() => setSelectedInvoice(inv.invoice_id)}
+                      sx={{
+                        px: 2, py: 1.5, borderRadius: '12px', cursor: 'pointer',
+                        background: 'linear-gradient(135deg, rgba(0,122,255,0.12), rgba(50,173,230,0.10))',
+                        border: '1px solid rgba(0,122,255,0.25)',
+                        transition: 'all 0.15s',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, rgba(0,122,255,0.20), rgba(50,173,230,0.16))',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    >
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <ReceiptIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                          <Box>
+                            <Typography variant="body2" fontWeight={700} color="primary.main">
+                              {inv.invoice_number}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {fmt(inv.total)}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <StatusBadge status={inv.status} />
+                          <ChevronRightIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                        </Stack>
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+            </Stack>
           </Box>
         )}
       </Drawer>
