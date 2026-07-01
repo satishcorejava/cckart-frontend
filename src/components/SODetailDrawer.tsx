@@ -6,20 +6,16 @@ import {
   Button, useTheme, useMediaQuery, Snackbar,
 } from '@mui/material';
 import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
-import PaymentsIcon     from '@mui/icons-material/Payments';
 import ReceiptIcon      from '@mui/icons-material/Receipt';
 import CheckCircleIcon  from '@mui/icons-material/CheckCircle';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { fetchSalesOrderDetail, createInvoiceFromSO } from '../api/salesorders';
-import StatusBadge        from './StatusBadge';
-import SOFulfillDialog    from './SOFulfillDialog';
+import StatusBadge         from './StatusBadge';
 import InvoiceDetailDrawer from './InvoiceDetailDrawer';
-import type { SalesOrder } from '../types';
 
 const fmt  = (n: number | undefined | null) => '₹' + (n ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtQ = (n: number | undefined | null) => { const v = n ?? 0; return v % 1 === 0 ? String(v) : v.toFixed(2); };
 
-const FULFILLABLE = new Set(['draft', 'confirmed', 'open']);
 const CAN_INVOICE = new Set(['draft', 'confirmed', 'open']);
 
 interface Props {
@@ -32,7 +28,6 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
   const isMobile    = useMediaQuery(theme.breakpoints.down('sm'));
   const queryClient = useQueryClient();
 
-  const [fulfilling,      setFulfilling]      = useState(false);
   const [invoiceSnack,    setInvoiceSnack]    = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
 
@@ -43,7 +38,6 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
     staleTime: 0,
   });
 
-  const canFulfill = so ? FULFILLABLE.has(so.status) : false;
   const hasInvoice = (so?.invoices ?? []).length > 0;
   const canInvoice = so ? CAN_INVOICE.has(so.status) && !hasInvoice : false;
 
@@ -255,68 +249,37 @@ export default function SODetailDrawer({ salesOrderId, onClose }: Props) {
           )}
         </Box>
 
-        {/* Sticky footer */}
-        {!isLoading && so && (canFulfill || canInvoice) && (
+        {/* Sticky footer — Create Invoice only */}
+        {!isLoading && so && canInvoice && (
           <Box sx={{
             px: 3, py: 2,
             borderTop: `1px solid ${theme.palette.divider}`,
             background: theme.palette.background.paper,
           }}>
-            <Stack spacing={1.5}>
-              {/* Create Invoice button — shown when confirmed and no invoice yet */}
-              {canInvoice && (
-                <Button
-                  variant="contained"
-                  fullWidth
-                  startIcon={createInvoiceMut.isSuccess
-                    ? <CheckCircleIcon />
-                    : <ReceiptIcon />}
-                  onClick={() => createInvoiceMut.mutate()}
-                  disabled={createInvoiceMut.isPending || createInvoiceMut.isSuccess}
-                  sx={{
-                    py: 1.2, borderRadius: '10px', fontWeight: 700,
-                    background: createInvoiceMut.isSuccess
-                      ? '#34C759'
-                      : 'linear-gradient(135deg,#34C759,#30B94E)',
-                    '&:hover': { background: 'linear-gradient(135deg,#28A745,#239B3F)' },
-                    '&.Mui-disabled': { opacity: 0.7, color: '#fff' },
-                  }}
-                >
-                  {createInvoiceMut.isPending
-                    ? 'Creating Invoice…'
-                    : createInvoiceMut.isSuccess
-                      ? 'Invoice Created'
-                      : 'Create Invoice'}
-                </Button>
-              )}
-
-              {/* Record Payment & Fulfill */}
-              {canFulfill && (
-                <Button
-                  variant={canInvoice ? 'outlined' : 'contained'}
-                  fullWidth
-                  startIcon={<PaymentsIcon />}
-                  onClick={() => setFulfilling(true)}
-                  sx={{
-                    py: 1.2, borderRadius: '10px', fontWeight: 700,
-                    ...(canInvoice ? {} : {
-                      background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
-                      '&:hover': { background: 'linear-gradient(135deg,#0062CC,#1A9ADB)' },
-                    }),
-                  }}
-                >
-                  Record Payment &amp; Fulfill
-                </Button>
-              )}
-            </Stack>
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={createInvoiceMut.isSuccess ? <CheckCircleIcon /> : <ReceiptIcon />}
+              onClick={() => createInvoiceMut.mutate()}
+              disabled={createInvoiceMut.isPending || createInvoiceMut.isSuccess}
+              sx={{
+                py: 1.2, borderRadius: '10px', fontWeight: 700,
+                background: createInvoiceMut.isSuccess
+                  ? '#34C759'
+                  : 'linear-gradient(135deg,#34C759,#30B94E)',
+                '&:hover': { background: 'linear-gradient(135deg,#28A745,#239B3F)' },
+                '&.Mui-disabled': { opacity: 0.7, color: '#fff' },
+              }}
+            >
+              {createInvoiceMut.isPending
+                ? 'Creating Invoice…'
+                : createInvoiceMut.isSuccess
+                  ? 'Invoice Created'
+                  : 'Create Invoice'}
+            </Button>
           </Box>
         )}
       </Drawer>
-
-      <SOFulfillDialog
-        salesOrder={fulfilling && so ? (so as unknown as SalesOrder) : null}
-        onClose={() => setFulfilling(false)}
-      />
 
       <InvoiceDetailDrawer
         invoiceId={selectedInvoice}
