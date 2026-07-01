@@ -35,7 +35,7 @@ export default function DashboardPage() {
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>Analytics Dashboard</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Live data from Zoho Books &amp; Inventory
+        From local database · synced from Zoho
       </Typography>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
