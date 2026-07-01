@@ -45,6 +45,7 @@ export default function RecordPaymentDialog({ invoice, onClose }: Props) {
     mutationFn: recordPayment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice', invoice?.invoice_id] });
       handleClose();
     },
   });
