@@ -29,7 +29,6 @@ const NAV = [
   { label: 'Sales Orders',  path: '/salesorders',    Icon: ShoppingCartIcon },
   { label: 'Contacts',      path: '/contacts',       Icon: PeopleIcon       },
   { label: 'Items',         path: '/items',          Icon: InventoryIcon    },
-  { label: 'SO Invoices',   path: '/so-invoices',    Icon: LinkIcon         },
   { label: 'Organizations', path: '/organizations',  Icon: BusinessIcon     },
 ];
 
