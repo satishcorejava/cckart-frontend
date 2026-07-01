@@ -11,7 +11,6 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import BusinessIcon     from '@mui/icons-material/Business';
 import PeopleIcon       from '@mui/icons-material/People';
 import InventoryIcon    from '@mui/icons-material/Inventory2';
-import LinkIcon         from '@mui/icons-material/Link';
 import Brightness4Icon  from '@mui/icons-material/Brightness4';
 import Brightness7Icon  from '@mui/icons-material/Brightness7';
 import LogoutIcon       from '@mui/icons-material/Logout';
