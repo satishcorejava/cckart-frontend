@@ -60,11 +60,6 @@ function ItemCard({ item }: { item: Item }) {
           {/* Right */}
           <Stack alignItems="flex-end" spacing={0.5} sx={{ ml: 1.5, flexShrink: 0 }}>
             <Typography variant="body1" fontWeight={800}>{fmt(item.rate)}</Typography>
-            {item.purchase_rate > 0 && (
-              <Typography variant="caption" color="text.secondary">
-                Cost {fmt(item.purchase_rate)}
-              </Typography>
-            )}
             <Chip
               label={`${item.stock_on_hand ?? 0} in stock`}
               size="small"
