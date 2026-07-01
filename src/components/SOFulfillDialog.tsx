@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, MenuItem, Stack, Typography,
   Alert, Divider, CircularProgress, Stepper, Step, StepLabel,
+  Box, IconButton,
 } from '@mui/material';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import DeleteIcon    from '@mui/icons-material/Delete';
 import type { SalesOrder } from '../types';
 import { fulfillSalesOrder, type FulfillmentResult } from '../api/salesorders';
 
 const PAYMENT_MODES = [
-  { label: 'Cash',          value: 'cash'         },
   { label: 'UPI',           value: 'upi'          },
+  { label: 'Cash',          value: 'cash'         },
   { label: 'Bank Transfer', value: 'banktransfer' },
   { label: 'Credit Card',   value: 'creditcard'   },
   { label: 'Cheque',        value: 'check'        },
@@ -29,12 +32,14 @@ interface Props {
 
 export default function SOFulfillDialog({ salesOrder, onClose }: Props) {
   const queryClient = useQueryClient();
+  const fileRef     = useRef<HTMLInputElement>(null);
 
   const [amount,      setAmount]      = useState('');
-  const [mode,        setMode]        = useState('cash');
+  const [mode,        setMode]        = useState('upi');
   const [date,        setDate]        = useState(today());
   const [reference,   setReference]   = useState('');
   const [description, setDescription] = useState('');
+  const [screenshot,  setScreenshot]  = useState<string | null>(null);
   const [result,      setResult]      = useState<FulfillmentResult | null>(null);
 
   const { mutate, isPending, error, reset } = useMutation({
@@ -51,15 +56,28 @@ export default function SOFulfillDialog({ salesOrder, onClose }: Props) {
   const handleClose = () => {
     reset();
     setAmount('');
-    setMode('cash');
+    setMode('upi');
     setDate(today());
     setReference('');
     setDescription('');
+    setScreenshot(null);
     setResult(null);
     onClose();
   };
 
-  const amountNum   = parseFloat(amount) || 0;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setScreenshot(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // Auto-populate amount from SO total if user hasn't typed yet
+  const effectiveAmount = amount !== '' ? amount : String(salesOrder?.total ?? '');
+
+  const amountNum   = parseFloat(effectiveAmount) || 0;
   const maxAmount   = salesOrder?.total ?? 0;
   const amountError = amountNum <= 0
     ? 'Amount must be greater than zero'
@@ -144,10 +162,10 @@ export default function SOFulfillDialog({ salesOrder, onClose }: Props) {
             <TextField
               label="Payment Amount (₹)"
               type="number"
-              value={amount}
+              value={effectiveAmount}
               onChange={(e) => setAmount(e.target.value)}
-              error={!!amount && !!amountError}
-              helperText={amount ? amountError : `Order total: ${fmt(maxAmount)}`}
+              error={!!effectiveAmount && !!amountError}
+              helperText={effectiveAmount ? amountError : `Order total: ${fmt(maxAmount)}`}
               inputProps={{ min: 0.01, max: maxAmount, step: 0.01 }}
               fullWidth
               required
@@ -192,6 +210,56 @@ export default function SOFulfillDialog({ salesOrder, onClose }: Props) {
               rows={2}
             />
 
+            {/* Payment screenshot */}
+            <Box>
+              <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mb: 1 }}>
+                Payment Screenshot (optional)
+              </Typography>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+              {screenshot ? (
+                <Box sx={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                  <Box
+                    component="img"
+                    src={screenshot}
+                    alt="Payment screenshot"
+                    sx={{
+                      width: '100%', maxHeight: 220, objectFit: 'contain',
+                      borderRadius: '10px', border: '1px solid',
+                      borderColor: 'divider', display: 'block',
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => setScreenshot(null)}
+                    sx={{
+                      position: 'absolute', top: 6, right: 6,
+                      background: 'rgba(0,0,0,0.55)', color: '#fff',
+                      '&:hover': { background: 'rgba(0,0,0,0.75)' },
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              ) : (
+                <Button
+                  variant="outlined"
+                  startIcon={<CameraAltIcon />}
+                  onClick={() => fileRef.current?.click()}
+                  fullWidth
+                  sx={{ borderRadius: '10px', borderStyle: 'dashed', py: 1.5, textTransform: 'none' }}
+                >
+                  Upload / Take Photo
+                </Button>
+              )}
+            </Box>
+
             {error && (
               <Alert severity="error" sx={{ borderRadius: '10px' }}>
                 {(error as Error).message}
@@ -219,7 +287,7 @@ export default function SOFulfillDialog({ salesOrder, onClose }: Props) {
           <Button
             variant="contained"
             onClick={handleSubmit}
-            disabled={isPending || !amount || !!amountError}
+            disabled={isPending || !effectiveAmount || !!amountError}
             sx={{
               borderRadius: '8px',
               background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
