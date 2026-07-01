@@ -4,14 +4,12 @@ import {
   Tooltip, IconButton, Stack, Card, CardActionArea, CardContent,
   Pagination, Chip, TextField, useTheme, useMediaQuery,
 } from '@mui/material';
-import PaymentsIcon   from '@mui/icons-material/Payments';
 import RefreshIcon    from '@mui/icons-material/Refresh';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import StatusBadge    from '../components/StatusBadge';
 import PageLoader     from '../components/PageLoader';
 import ErrorAlert     from '../components/ErrorAlert';
 import TableToolbar   from '../components/TableToolbar';
-import SOFulfillDialog  from '../components/SOFulfillDialog';
 import SODetailDrawer   from '../components/SODetailDrawer';
 import { useSalesOrders } from '../hooks/useSalesOrders';
 import type { SalesOrder } from '../types';
@@ -45,7 +43,6 @@ function resolveDates(preset: string): { dateStart?: string; dateEnd?: string } 
   return {};
 }
 
-const FULFILLABLE = new Set(['draft', 'confirmed', 'open']);
 
 const TOGGLE_SX = {
   '& .MuiToggleButton-root': {
@@ -55,8 +52,9 @@ const TOGGLE_SX = {
 };
 
 // ── Mobile card ───────────────────────────────────────────────────────────────
-function SOCard({ so, onView, onFulfill }: { so: SalesOrder; onView: (id: string) => void; onFulfill: (so: SalesOrder) => void }) {
-  const canFulfill = FULFILLABLE.has(so.status);
+function SOCard({ so, onView }: { so: SalesOrder; onView: (id: string) => void }) {
+  const paidStatus: string = (so as any).paid_status ?? '';
+  const paidColor = paidStatus === 'paid' ? '#34C759' : paidStatus === 'partially_paid' ? '#FF9500' : '#8E8E93';
   return (
     <Card variant="outlined" sx={{ borderRadius: '12px', mb: 1.5 }}>
       <CardActionArea onClick={() => onView(so.salesorder_id)} sx={{ p: 0 }}>
@@ -80,20 +78,13 @@ function SOCard({ so, onView, onFulfill }: { so: SalesOrder; onView: (id: string
             {/* Right */}
             <Stack alignItems="flex-end" spacing={0.5} sx={{ ml: 1, flexShrink: 0 }}>
               <Typography variant="body1" fontWeight={800}>{fmt(so.total)}</Typography>
-              {canFulfill && (
-                <Tooltip title="Record payment & fulfill">
-                  <IconButton
-                    size="small"
-                    onClick={() => onFulfill(so)}
-                    sx={{
-                      color: '#fff', background: 'linear-gradient(135deg,#007AFF,#32ADE6)',
-                      width: 30, height: 30,
-                      '&:hover': { background: 'linear-gradient(135deg,#0062CC,#1A9ADB)' },
-                    }}
-                  >
-                    <PaymentsIcon sx={{ fontSize: 15 }} />
-                  </IconButton>
-                </Tooltip>
+              {paidStatus && (
+                <Chip
+                  label={paidStatus.replace('_', ' ')}
+                  size="small"
+                  sx={{ height: 18, fontSize: '0.62rem', fontWeight: 700, textTransform: 'capitalize',
+                        bgcolor: paidColor + '22', color: paidColor, border: `1px solid ${paidColor}44` }}
+                />
               )}
             </Stack>
           </Stack>
@@ -112,7 +103,6 @@ export default function SalesOrdersPage() {
   const [datePreset,  setDatePreset]  = useState('today');
   const [customStart, setCustomStart] = useState('');
   const [customEnd,   setCustomEnd]   = useState('');
-  const [fulfilling,  setFulfilling]  = useState<SalesOrder | null>(null);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
 
@@ -138,20 +128,6 @@ export default function SalesOrdersPage() {
     { field: 'reference_number',  headerName: 'Reference', width: 140 },
     { field: 'total',             headerName: 'Total',     width: 130, type: 'number', valueFormatter: (v: number) => fmt(v) },
     { field: 'status',            headerName: 'Status',    width: 120, renderCell: (p) => <StatusBadge status={p.value as string} /> },
-    {
-      field: '_actions', headerName: '', width: 60, sortable: false, disableColumnMenu: true,
-      renderCell: (p) => {
-        const so = p.row as SalesOrder;
-        if (!FULFILLABLE.has(so.status)) return null;
-        return (
-          <Tooltip title="Record payment & fulfill">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); setFulfilling(so); }} sx={{ color: '#007AFF' }}>
-              <PaymentsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        );
-      },
-    },
   ];
 
   return (
@@ -218,7 +194,7 @@ export default function SalesOrdersPage() {
                 </Box>
               ) : (
                 (data?.items ?? []).map((so) => (
-                  <SOCard key={so.salesorder_id} so={so} onView={setSelectedId} onFulfill={setFulfilling} />
+                  <SOCard key={so.salesorder_id} so={so} onView={setSelectedId} />
                 ))
               )}
 
@@ -263,7 +239,6 @@ export default function SalesOrdersPage() {
         </>
       )}
 
-      <SOFulfillDialog salesOrder={fulfilling} onClose={() => setFulfilling(null)} />
       <SODetailDrawer salesOrderId={selectedId} onClose={() => setSelectedId(null)} />
     </Box>
   );
