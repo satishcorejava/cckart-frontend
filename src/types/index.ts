@@ -67,6 +67,16 @@ export interface Item {
   hsn_or_sac: string;
 }
 
+export interface ItemDetail extends Item {
+  available_stock: number;
+  reorder_level: number;
+  tax_id: string;
+  tax_percentage: number;
+  is_taxable: boolean;
+  vendor_id: string;
+  vendor_name: string;
+}
+
 export interface InvoiceLineItem {
   line_item_id: string;
   item_id: string;

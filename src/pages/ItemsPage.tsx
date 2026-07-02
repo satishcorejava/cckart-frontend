@@ -2,14 +2,15 @@ import { useState } from 'react';
 import {
   Box, Typography, ToggleButton, ToggleButtonGroup,
   TextField, InputAdornment, Paper, useTheme, useMediaQuery,
-  Card, CardContent, Stack, Chip, Pagination,
+  Card, CardActionArea, CardContent, Stack, Chip, Pagination,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import StatusBadge  from '../components/StatusBadge';
-import PageLoader   from '../components/PageLoader';
-import ErrorAlert   from '../components/ErrorAlert';
-import TableToolbar from '../components/TableToolbar';
+import StatusBadge       from '../components/StatusBadge';
+import PageLoader        from '../components/PageLoader';
+import ErrorAlert        from '../components/ErrorAlert';
+import TableToolbar      from '../components/TableToolbar';
+import ItemDetailDrawer  from '../components/ItemDetailDrawer';
 import { useItems } from '../hooks/useItems';
 import type { Item } from '../types';
 
@@ -35,10 +36,11 @@ const STATUS_OPTIONS = [
   { value: 'inactive', label: 'Inactive' },
 ];
 
-function ItemCard({ item }: { item: Item }) {
+function ItemCard({ item, onView }: { item: Item; onView: (id: string) => void }) {
   const stockColor = item.stock_on_hand > 0 ? '#34C759' : '#FF9500';
   return (
     <Card variant="outlined" sx={{ borderRadius: '12px', mb: 1.5 }}>
+      <CardActionArea onClick={() => onView(item.item_id)} sx={{ p: 0 }}>
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           {/* Left */}
@@ -72,6 +74,7 @@ function ItemCard({ item }: { item: Item }) {
           </Stack>
         </Stack>
       </CardContent>
+      </CardActionArea>
     </Card>
   );
 }
@@ -80,8 +83,9 @@ export default function ItemsPage() {
   const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [status,  setStatus]  = useState('active');
-  const [search,  setSearch]  = useState('');
+  const [status,         setStatus]         = useState('active');
+  const [search,         setSearch]         = useState('');
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
 
   const { data, isLoading, error, refetch } = useItems(
@@ -158,7 +162,7 @@ export default function ItemsPage() {
                 </Box>
               ) : (
                 (data?.items ?? []).map((item) => (
-                  <ItemCard key={item.item_id} item={item} />
+                  <ItemCard key={item.item_id} item={item} onView={setSelectedItemId} />
                 ))
               )}
 
@@ -187,11 +191,13 @@ export default function ItemsPage() {
                 paginationMode="server"
                 rowCount={data?.total ?? 0}
                 disableRowSelectionOnClick
+                onRowClick={(params) => setSelectedItemId(params.row.item_id)}
                 slots={{ toolbar: TableToolbar }}
                 ignoreDiacritics
                 sx={{
                   border: 'none', height: '100%',
                   '& .MuiDataGrid-columnHeaders': { fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.05em', textTransform: 'uppercase' },
+                  '& .MuiDataGrid-row': { cursor: 'pointer' },
                   '& .MuiDataGrid-row:hover': { background: 'rgba(0,122,255,0.06)' },
                 }}
               />
@@ -199,6 +205,8 @@ export default function ItemsPage() {
           )}
         </>
       )}
+
+      <ItemDetailDrawer itemId={selectedItemId} onClose={() => setSelectedItemId(null)} />
     </Box>
   );
 }
